@@ -22,6 +22,8 @@ class MainWindow():
 
         self.create_3D_scene()
 
+        # TODO: add 3d scene to window
+
         font_size = self.window.theme.font_size
         margin_size = int(0.5 * font_size)
         element_sep = int(1.5 * font_size)
