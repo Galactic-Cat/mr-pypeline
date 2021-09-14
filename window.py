@@ -1,13 +1,17 @@
-import glob
-import numpy as np
-import open3d as o3d
-import open3d.visualization.gui as gui
-import open3d.visualization.rendering as rendering
+'''Main Window class'''
+
+from open3d.visualization import gui, rendering
 
 class MainWindow():
-    
-    
-    def __init__(self, width, height):
+    '''Class for drawing the main window'''
+
+    def __init__(self, width: int, height: int) -> None:
+        '''Initializes a MainWindow instance with a predefined height and width
+
+        Args:
+            width (int): The width of the window
+            height (int): The height of the window
+        '''
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         
         self.create_3D_scene()

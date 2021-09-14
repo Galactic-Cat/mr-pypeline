@@ -64,6 +64,3 @@ if __name__ == '__main__':
 
 # Create a global variable containing the parsed arguments
 args = parse_arguments()
-
-# Setup the loggers using the debug argument
-setup_logger(args.debug)
