@@ -26,8 +26,8 @@ class MainWindow():
         #self.window
         self.create_menu_bar()
         self.create_3D_scene()
-
-        self.window.add_child(self._scene_3d)
+        
+        #self.window.add_child(self._scene_3d)
         #self.window.add_child(self._options_panel)
 
     def create_menu_bar(self):
@@ -45,7 +45,7 @@ class MainWindow():
         gui.Application.instance.menubar = main_menu
 
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
-        self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self._clear_scene)
+        self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
     
 
 
@@ -90,12 +90,37 @@ class MainWindow():
     def _on_load_dialog_cancel(self):
         self.window.close_dialog()
 
-    def _clear_scene(self) -> None:
-        #open dialog that asks whether we should clear scene?
-        #yes? -> clear geometry
-        #no? -> close dialog
-        pass
+    def on_clear_scene(self):
+        font_size = self.window.theme.font_size
+
+        dialog = gui.Dialog("Clear")
+
+        dlg_layout = gui.Vert(font_size, gui.Margins(font_size,font_size,font_size,font_size))
+        dlg_layout.add_child(gui.Label("Are you sure you wish to clear the mesh?"))
+        
+        yes_button = gui.Button("Yes")
+        yes_button.set_on_clicked(self._on_click_yes_btn)
+
+        cancel_button = gui.Button("Cancel")
+        cancel_button.set_on_clicked(self._on_click_cancel_btn)
+
+        self.log.debug("Dialog buttons have been instantiated.")
+
+        h_grid = gui.Horiz()
+        h_grid.add_child(yes_button)
+        h_grid.add_child(cancel_button)
+        dlg_layout.add_child(h_grid)
+        dialog.add_child(dlg_layout)
+
+        self.window.show_dialog(dialog)
     
+    def _on_click_yes_btn(self):
+        self._scene_3d.scene.clear_geometry()
+        self.window.close_dialog()
+
+    def _on_click_cancel_btn(self):
+        self.window.close_dialog()
+
     def create_3D_scene(self) -> None:
         '''Creates the 3D Widget which will be used to render the meshes on the window.
 
@@ -118,7 +143,8 @@ class MainWindow():
         self._scene_3d.scene.scene.enable_sun_light(True)
 
         #Set up bounding box and camera
-        bbox = o3d.geometry.AxisAlignedBoundingBox([-5, -5, -5],
-                                                   [5, 5, 5])
+        bbox = o3d.geometry.AxisAlignedBoundingBox([-15, -15, -15],
+                                                   [15, 15, 15])
         self._scene_3d.setup_camera(60, bbox, [0, 0, 0])
         self._scene_3d.scene.show_axes(True)
+        self.window.add_child(self._scene_3d)
