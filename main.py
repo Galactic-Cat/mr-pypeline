@@ -16,7 +16,7 @@ def main() -> None:
     # Create a window and load a file
     window = MainWindow(1024,768)
 
-    window.load('./m100.off')
+    window.load('./plane.ply')
     gui.Application.instance.run()
 
 # Run the main code only if this is used as the entrypoint of the program
