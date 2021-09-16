@@ -8,7 +8,6 @@ from sys import exit as sys_exit, stdout
 
 def setup_logger(stream_level: str) -> None:
     '''Sets up a file and stream logger
-
     Args:
         stream_level (str): The logging level for the stream handler
     '''
@@ -39,7 +38,6 @@ def setup_logger(stream_level: str) -> None:
 
 def parse_arguments() -> Namespace:
     '''Creates an argument parser and parses the arguments
-
     Returns:
         Namespace: The parsed arguments as a argparse namespace
     '''
