@@ -104,8 +104,11 @@ class MainWindow():
         self.log.debug("Dialog buttons have been instantiated.")
 
         h_grid = gui.Horiz()
+        h_grid.add_stretch()
         h_grid.add_child(yes_button)
+        h_grid.add_stretch()
         h_grid.add_child(cancel_button)
+        h_grid.add_stretch()
         dlg_layout.add_child(h_grid)
         dialog.add_child(dlg_layout)
 
