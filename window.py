@@ -57,7 +57,16 @@ class MainWindow():
         #open3d.io.read_file_geometry_type maybe use this to figure out which one we have to use
         #if geometry type &  io.CONTAINS_TRIANGLES: else log trying to load an unsupported file.
         mesh = io.read_triangle_mesh(filepath)
-        self._scene_3d.scene.add_geometry('main_geometry', mesh, rendering.Material())
+        mesh.compute_vertex_normals()
+
+        #Define Mesh Material
+        material = rendering.Material()
+        material.base_color = [1,0,0.5,1]
+        material.shader = 'defaultLit'
+
+        #Add model to the scene
+        self._scene_3d.scene.add_geometry('main_geometry', mesh, material)
+
 
     def on_load_mesh(self) -> None:
 
@@ -111,7 +120,7 @@ class MainWindow():
         h_grid.add_stretch()
         dlg_layout.add_child(h_grid)
         dialog.add_child(dlg_layout)
-
+    
         self.window.show_dialog(dialog)
     
     def _on_click_yes_btn(self):
@@ -132,7 +141,7 @@ class MainWindow():
         self._scene_3d.scene.scene.set_sun_light(
             [-1, -1, -1],
             [1, 1, 1],
-            100000)
+            1000)
         self._scene_3d.scene.scene.enable_sun_light(True)
 
         #Set up bounding box and camera
