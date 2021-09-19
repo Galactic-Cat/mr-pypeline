@@ -36,6 +36,9 @@ def setup_logger(stream_level: str) -> None:
     mpl = getLogger('matplotlib')
     mpl.setLevel(30)
 
+    # Test message
+    getLogger('logging').debug('Setup logger at level %s (stream)', stream_level)
+
 def parse_arguments() -> Namespace:
     '''Creates an argument parser and parses the arguments
     Returns:
