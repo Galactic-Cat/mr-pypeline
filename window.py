@@ -1,17 +1,29 @@
 '''Main Window class'''
 
 from logging import getLogger
-from os.path import exists
+from os import getcwd, listdir
+from os.path import exists, isdir, isfile, join, basename
+from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
+from shape import Shape
+
 
 class MainWindow():
     '''Class for drawing the main window'''
+    
+    # Menu statics
     ACTION_LOAD_MESH = 1
     ACTION_CLEAR_MESH = 2
+    READ_DATA_BASE = 3
+
+    # Database paths
+    PRINCETON_PATH = "./princeton"
+    PSB_PATH = "./psb"
+
     log = getLogger('MainWindow')
-    
+
     def __init__(self, width:int, height:int):
         '''Initializes a MainWindow instance with a predefined height and width
         
@@ -22,21 +34,23 @@ class MainWindow():
         
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         
-        #self.window
+        self.shape: Shape = None
         self.create_menu_bar()
         self.create_3D_scene()
         
-        #self.window.add_child(self._scene_3d)
-        #self.window.add_child(self._options_panel)
 
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
             action_menu = gui.Menu()
             action_menu.add_item("Load Mesh", MainWindow.ACTION_LOAD_MESH)
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
-        
+
+            debug_menu = gui.Menu()
+            debug_menu.add_item("Load Shape", MainWindow.READ_DATA_BASE)
+
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
+        main_menu.add_menu("Debug", debug_menu)
 
         if main_menu is None:
             self.log.error("Main menu could not be instantiated")
@@ -45,6 +59,7 @@ class MainWindow():
 
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
+        self.window.set_on_menu_item_activated(MainWindow.READ_DATA_BASE, self.on_load_database_prince)
 
     def load(self, filepath) -> None:
 
@@ -54,8 +69,6 @@ class MainWindow():
         
         self._scene_3d.scene.clear_geometry()
 
-        #open3d.io.read_file_geometry_type maybe use this to figure out which one we have to use
-        #if geometry type &  io.CONTAINS_TRIANGLES: else log trying to load an unsupported file.
         mesh = io.read_triangle_mesh(filepath)
         mesh.compute_vertex_normals()
 
@@ -68,13 +81,59 @@ class MainWindow():
         self._scene_3d.scene.add_geometry('main_geometry', mesh, material)
 
 
+    def navigate_directory(self, path: str) -> None:
+        
+        if exists(path):
+            for entry in listdir(path):
+                f = join(path, entry)
+                if isdir(f):
+                    self.navigate_directory(f)
+                if isfile(f):
+                    file_ext = basename(f)[-4:] 
+                    if  file_ext == '.off' or file_ext == '.ply':
+                        self.log.debug("Reading file %s.", entry)
+                        self.shape = Shape(f)
+                        self.log.debug("Shape class initialized.")
+                        #Todo calculate all shape properties and then update database! Rn we are just updating with Nulls causing a crash.
+                        self.shape.update_database()
+            return
+
+        self.log.error("Navigating to %s failed.", path)
+        return
+
+    def on_load_database_prince(self) -> None:
+        
+        ''' Attemps to load database
+        
+        '''
+        if not exists(self.PRINCETON_PATH):
+            self.log.error("Princeton database path %s does not exists.", self.PRINCETON_PATH)
+
+        princeton_files = getcwd() + self.PRINCETON_PATH + "\db"
+        self.navigate_directory(princeton_files)
+
+        return
+
+    def on_load_database_psb(self) -> None:
+        
+        ''' Attemps to load PSB database
+        
+        '''
+        if not exists(self.PRINCETON_PATH):
+            self.log.error("Princeton database path %s does not exists.", self.PRINCETON_PATH)
+
+        PSB_files = getcwd() + self.PSB_PATH
+        self.navigate_directory(PSB_files)
+
+        return
+
     def on_load_mesh(self) -> None:
 
         '''Attempts to load a file from a path into the viewport
         Args:
             filepath (str): The file path
         Returns:
-            bool: Whether the loading succeeded
+            None
         '''
 
         load_dlg = gui.FileDialog(gui.FileDialog.OPEN, "Choose a mesh to load",
@@ -145,8 +204,8 @@ class MainWindow():
         self._scene_3d.scene.scene.enable_sun_light(True)
 
         #Set up bounding box and camera
-        bbox = geometry.AxisAlignedBoundingBox([-15, -15, -15],
-                                                   [15, 15, 15])
+        bbox = geometry.AxisAlignedBoundingBox([-5, -5, -5],
+                                                   [5, 5, 5])
         self._scene_3d.setup_camera(60, bbox, [0, 0, 0])
         self._scene_3d.scene.show_axes(True)
         self.window.add_child(self._scene_3d)

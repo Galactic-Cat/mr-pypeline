@@ -1,6 +1,6 @@
 '''Module for finding and storing shape data'''
 
-from __future__ import annotations
+#from __future__ import annotations
 from logging import getLogger
 from os.path import basename, exists
 from re import sub
@@ -112,7 +112,7 @@ class Shape:
         return '.'.join(split_base_name)
 
     @classmethod
-    def from_database(name: str) -> Shape:
+    def from_database(cls, name: str):# -> Shape:
         '''Generates a shape class instance from database data
 
         Args:
@@ -130,7 +130,7 @@ class Shape:
             return
 
         data = database[name]
-        shape = Shape(data.path, name)
+        shape = cls(data.path, name)
         aabb_vector = utility.Vector3dVector(array([data['aabb_max'], data['aabb_min']]))
         shape.aabb = geometry.AxisAlignedBoundingBox.create_from_points(aabb_vector)
         shape.face_count = data.face_count
@@ -139,6 +139,7 @@ class Shape:
         
         return shape
 
+#Loads a full database
 def load_database(path: str = None) -> None:
     '''Loads a database from a csv file, or creates a blank one if a path is omitted
 
@@ -215,6 +216,7 @@ def load_database(path: str = None) -> None:
 
     log.debug('Loaded %d database entries', len(database))
 
+#Saves the new 
 def save_database(path: str) -> None:
     '''Saves the database to a CSV file
 
