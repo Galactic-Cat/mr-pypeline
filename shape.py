@@ -62,6 +62,34 @@ class Shape:
         self.mesh = triangle_mesh
         log.debug('Loaded triangle mesh from file "%s"', self.path)
 
+
+    def read_non_mesh_data(self) -> None:
+        '''Reads the file path specified in self.path and stores the vertex and face counts.
+        
+        '''
+        if not exists(self.path):
+            log.error("Non-existant path %s in shape object.", self.path)
+            return
+        
+        with open(self.path, 'r') as f:
+            log.debug('Opened file %s', self.path)
+            line = f.readline().strip()
+            #If the optional OFF line is present simply skip and read the next line
+            if line == 'OFF':
+                line = f.readline().strip()
+
+            values = line.split(' ')
+            #log.debug('Obtained vertex_count %s, and face_count %s', values[0], values[1])
+            self.vertex_count = int(values[0])
+            self.face_count = int(values[1])
+        
+        return
+        
+    def find_label_shape(self) -> None:
+        #Due to the nature of the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
+        log.error("Trying to find the label shape, has not be implemented.")
+        pass
+
     def update_database(self, name: str = None) -> None:
         '''Updates the database with this shape
 

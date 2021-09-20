@@ -7,7 +7,7 @@ from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
-from shape import Shape
+from shape import Shape, load_database
 
 
 class MainWindow():
@@ -19,7 +19,7 @@ class MainWindow():
     READ_DATA_BASE = 3
 
     # Database paths
-    PRINCETON_PATH = "./princeton"
+    PRINCETON_PATH = "\\princeton" + "\\db" 
     PSB_PATH = "./psb"
 
     log = getLogger('MainWindow')
@@ -37,20 +37,20 @@ class MainWindow():
         self.shape: Shape = None
         self.create_menu_bar()
         self.create_3D_scene()
+        self.load_databases() #Still to do: specify which SHAPE databases we want to add
         
-
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
             action_menu = gui.Menu()
             action_menu.add_item("Load Mesh", MainWindow.ACTION_LOAD_MESH)
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
 
-            debug_menu = gui.Menu()
-            debug_menu.add_item("Load Shape", MainWindow.READ_DATA_BASE)
+            # debug_menu = gui.Menu()
+            # debug_menu.add_item("Load Shape", MainWindow.READ_DATA_BASE)
 
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
-        main_menu.add_menu("Debug", debug_menu)
+        #main_menu.add_menu("Debug", debug_menu)
 
         if main_menu is None:
             self.log.error("Main menu could not be instantiated")
@@ -59,7 +59,7 @@ class MainWindow():
 
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
-        self.window.set_on_menu_item_activated(MainWindow.READ_DATA_BASE, self.on_load_database_prince)
+        #self.window.set_on_menu_item_activated(MainWindow.READ_DATA_BASE, self.on_load_database_prince)
 
     def load(self, filepath) -> None:
 
@@ -81,49 +81,59 @@ class MainWindow():
         self._scene_3d.scene.add_geometry('main_geometry', mesh, material)
 
 
-    def navigate_directory(self, path: str) -> None:
+    def load_databases(self, filepath: str = None) -> None:
+        if filepath is not None:
+            self.log.error("Loading a database .csv file is not yet implemented.")
+
+        load_database(filepath)
+        self._load_raw_database(self.PRINCETON_PATH)
+
+
+    def _add_to_database(self, mesh_file = None) -> None:
+        if mesh_file is None:
+            self.log.warning("Attempted to load a non existant mesh.")
+            return
         
+        shape = Shape(mesh_file)
+        shape.read_non_mesh_data()
+        shape.update_database()
+
+        return 
+
+
+    def _navigate_directory(self, path: str) -> None:
+        '''Recursively iterates through the entire directory (and its subdirectories!) searching for .off or .ply files.
+        
+        Args:
+            path (str) : Directory in which to search for mesh files.
+        '''
         if exists(path):
             for entry in listdir(path):
                 f = join(path, entry)
                 if isdir(f):
-                    self.navigate_directory(f)
+                    self._navigate_directory(f)
                 if isfile(f):
                     file_ext = basename(f)[-4:] 
                     if  file_ext == '.off' or file_ext == '.ply':
-                        self.log.debug("Reading file %s.", entry)
-                        self.shape = Shape(f)
-                        self.log.debug("Shape class initialized.")
-                        #Todo calculate all shape properties and then update database! Rn we are just updating with Nulls causing a crash.
-                        self.shape.update_database()
+                        self._add_to_database(f)
             return
 
         self.log.error("Navigating to %s failed.", path)
         return
 
-    def on_load_database_prince(self) -> None:
-        
-        ''' Attemps to load database
-        
-        '''
-        if not exists(self.PRINCETON_PATH):
-            self.log.error("Princeton database path %s does not exists.", self.PRINCETON_PATH)
 
-        princeton_files = getcwd() + self.PRINCETON_PATH + "\db"
-        self.navigate_directory(princeton_files)
-
-        return
-
-    def on_load_database_psb(self) -> None:
+    def _load_raw_database(self, filepath:str) -> None:
         
-        ''' Attemps to load PSB database
+        ''' Attemps to load a database
         
         '''
-        if not exists(self.PRINCETON_PATH):
-            self.log.error("Princeton database path %s does not exists.", self.PRINCETON_PATH)
 
-        PSB_files = getcwd() + self.PSB_PATH
-        self.navigate_directory(PSB_files)
+        filepath = getcwd() + filepath
+
+        if not exists(filepath):
+            self.log.error("Database path %s does not exists.", filepath)
+
+        self._navigate_directory(filepath)
 
         return
 
