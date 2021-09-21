@@ -23,10 +23,16 @@ def run_view() -> None:
     window.load('./plane.ply')
     gui.Application.instance.run()
 
+def run_data_collection() -> None:
+    '''Runs the data collection part of the program (to get information before pre-processing)'''
+    from datacollection import collect_shape_information
+    collect_shape_information(args.input[0], args.output[0])
+
 mode_table = {
     None: run_view,
     'preprocess': run_preprocess,
-    'view': run_view
+    'view': run_view,
+    'collect': run_data_collection
 }
 
 # Run the main code only if this is used as the entrypoint of the program

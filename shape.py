@@ -75,7 +75,7 @@ class Shape:
         self.mesh = triangle_mesh
         self.vertex_count = len(triangle_mesh.vertices)
         log.debug('Loaded triangle mesh from file "%s"', self.path)
-        
+
     def find_label_shape(self) -> None:
         #Due to the nature of the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
         log.error("Trying to find the label shape, has not be implemented.")

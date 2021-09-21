@@ -65,6 +65,11 @@ def parse_arguments() -> Namespace:
     preprocess.add_argument('input', type=str, nargs=1)
     preprocess.add_argument('output', type=str, nargs=1)
 
+    # Add preprocessing parser
+    collection = subparsers.add_parser('collect')
+    collection.add_argument('input', type=str, nargs=1)
+    collection.add_argument('output', type=str, nargs=1)
+
     # Parse the arguments
     return parser.parse_args()
 

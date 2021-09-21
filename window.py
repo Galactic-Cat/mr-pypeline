@@ -20,7 +20,6 @@ class MainWindow():
 
     # Database paths
     PRINCETON_PATH = "\\princeton" + "\\db" 
-    PSB_PATH = "./psb"
 
     log = getLogger('MainWindow')
 
@@ -45,12 +44,9 @@ class MainWindow():
             action_menu.add_item("Load Mesh", MainWindow.ACTION_LOAD_MESH)
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
 
-            # debug_menu = gui.Menu()
-            # debug_menu.add_item("Load Shape", MainWindow.READ_DATA_BASE)
 
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
-        #main_menu.add_menu("Debug", debug_menu)
 
         if main_menu is None:
             self.log.error("Main menu could not be instantiated")
@@ -59,7 +55,6 @@ class MainWindow():
 
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
-        #self.window.set_on_menu_item_activated(MainWindow.READ_DATA_BASE, self.on_load_database_prince)
 
     def load(self, filepath) -> None:
 
