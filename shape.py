@@ -14,6 +14,8 @@ log = getLogger('shape')
 class Shape:
     '''Class representing a shape mesh and relevant info'''
     aabb: geometry.AxisAlignedBoundingBox = None # The minimal axis aligned bounding box
+    aabb_max: array = None                       # The maximum point for the axis aligned bounding box
+    aabb_min: array = None                       # The minimum point for the axis aligned bounding box
     db_name: str = None                          # The name of the file in the database
     face_count: int = None                       # The number of faces in this shape
     label: str = None                            # The shape class label of the Princeton and PBS labeled dataset
@@ -33,8 +35,18 @@ class Shape:
         if db_name is not None:
             log.error('Shape loading from dictionary not yet implemented') # TODO: load shape from database
 
-    def find_aabb(self) -> None:
-        '''Calculates the axis aligned minimal bounding box'''
+    def find_aabb(self, from_points: bool = True) -> None:
+        '''Calculates the axis aligned minimal bounding box
+
+        Args:
+            from_points (bool, optional): Whether or not to use the min/max points stored in the shape (if available). Defaults to True.
+        '''
+        # Create the AABB from points if they're present
+        if from_points and self.aabb_max is not None and self.aabb_min is not None:
+            aabb_vector = utility.Vector3dVector(array([self.aabb_max, self.aabb_min]))
+            self.aabb = geometry.AxisAlignedBoundingBox.create_from_points(aabb_vector)
+            return
+
         if self.mesh is None:
             log.debug('Need to load mesh to get the AABB, doing so')
             self.load()
@@ -59,36 +71,21 @@ class Shape:
             log.error('Failed to load triangle mesh from "%s"', self.path)
             return
 
+        self.face_count = len(triangle_mesh.triangles)
         self.mesh = triangle_mesh
+        self.vertex_count = len(triangle_mesh.vertices)
         log.debug('Loaded triangle mesh from file "%s"', self.path)
-
-
-    def read_non_mesh_data(self) -> None:
-        '''Reads the file path specified in self.path and stores the vertex and face counts.
-        
-        '''
-        if not exists(self.path):
-            log.error("Non-existant path %s in shape object.", self.path)
-            return
-        
-        with open(self.path, 'r') as f:
-            log.debug('Opened file %s', self.path)
-            line = f.readline().strip()
-            #If the optional OFF line is present simply skip and read the next line
-            if line == 'OFF':
-                line = f.readline().strip()
-
-            values = line.split(' ')
-            #log.debug('Obtained vertex_count %s, and face_count %s', values[0], values[1])
-            self.vertex_count = int(values[0])
-            self.face_count = int(values[1])
-        
-        return
         
     def find_label_shape(self) -> None:
         #Due to the nature of the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
         log.error("Trying to find the label shape, has not be implemented.")
         pass
+
+    def unload(self) -> None:
+        '''Unloads the mesh and AABB from this shape class instance'''
+        self.aabb = None
+        self.loaded = False
+        self.mesh = None
 
     def update_database(self, name: str = None) -> None:
         '''Updates the database with this shape
@@ -159,11 +156,11 @@ class Shape:
 
         data = database[name]
         shape = cls(data.path, name)
-        aabb_vector = utility.Vector3dVector(array([data['aabb_max'], data['aabb_min']]))
-        shape.aabb = geometry.AxisAlignedBoundingBox.create_from_points(aabb_vector)
-        shape.face_count = data.face_count
-        shape.label = data.label
-        shape.vertex_count = data.vertex_count
+        shape.aabb_max = data['aabb_max']
+        shape.aabb_min = data['aabb_min']
+        shape.face_count = data['face_count']
+        shape.label = data['label']
+        shape.vertex_count = data['vertex_count']
         
         return shape
 
