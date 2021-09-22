@@ -7,17 +7,16 @@ from shape import Shape
 import pandas as pd
 
 log = getLogger('preprocess')
-SIZE_PARAM = 1000 #Random value for now
-
+SIZE_PARAM = 2000 # Check which value we want to use.
+SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
+SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
 def acceptable_size(shape: Shape) -> bool:
 
-    max_size = SIZE_PARAM + int(SIZE_PARAM * 0.2)
-    min_size = SIZE_PARAM - int(SIZE_PARAM * 0.2)
-    if shape.vertex_count <= SIZE_PARAM and shape.vertex_count > min_size:
+    if shape.face_count <= SIZE_PARAM and shape.face_count > SIZE_MIN:
         return True
     
-    if shape.vertex_count >= SIZE_PARAM and shape.vertex_count < max_size:
+    if shape.face_count >= SIZE_PARAM and shape.face_count < SIZE_MAX:
         return True
 
     return False
@@ -77,25 +76,38 @@ def preprocess(input_path: str, output_path: str) -> None:
         current_shape.find_aabb()
 
         #In this case we just need to resave the mesh in the output path
-        if acceptable_size(current_shape):
+        if not acceptable_size(current_shape):
+            
+            previous_f_count = current_shape.face_count
+            previous_v_count = current_shape.vertex_count
 
-            current_shape.save_mesh_file(output_path)
-            entry = current_shape.to_dict()
+            if current_shape.face_count > SIZE_MAX:
 
-            if not entry:
-                log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
-                continue
+                current_shape.subsample_mesh(SIZE_PARAM)
 
-            preprocessed_files.append(entry)
-        else:
-            #Call preprocessing functions here
-            #Give shape new "path"
+                log.debug("Decimated shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
+                            current_shape._get_name_from_path(), previous_f_count, previous_v_count, current_shape.face_count, current_shape.vertex_count)
+                
+            elif current_shape.face_count < SIZE_MIN:
+                current_shape.supersample_mesh(SIZE_PARAM)
+
+                log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
+                            current_shape._get_name_from_path(), previous_f_count, previous_v_count, current_shape.face_count, current_shape.vertex_count)
+
+        current_shape.find_aabb()
+        current_shape.save_mesh_file(output_path) # Save the pre-processed shape into our database directory
+        entry = current_shape.to_dict()
+
+        if not entry:
+            log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
             continue
 
-    
+        preprocessed_files.append(entry)
 
+
+    # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)
-    dataframe.to_csv(output_path + 'database.csv')
+    dataframe.to_csv(output_path + '/df.csv')
 
     return
 

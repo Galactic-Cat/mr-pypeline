@@ -137,6 +137,50 @@ class Shape:
         self.path = new_path
 
         return
+    
+    def subsample_mesh(self, target_count:int) -> None:
+        sub_mesh = self.mesh.simplify_quadric_decimation(target_number_of_triangles=target_count)
+
+        self.loaded = not sub_mesh.is_empty()
+
+        if not self.loaded:
+            log.error('Failed to sub-sample triangle mesh from "%s"', self.path)
+            return
+
+        self.face_count = len(sub_mesh.triangles)
+        self.mesh = sub_mesh
+        self.vertex_count = len(sub_mesh.vertices)
+
+        return
+
+    def supersample_mesh(self, target_count: int) -> None:
+        
+        super_mesh = self.mesh.subdivide_loop(number_of_iterations=1)
+
+        self.loaded = not super_mesh.is_empty()
+
+        if not self.loaded:
+            log.error('Failed to super-sample triangle mesh from "%s"', self.path)
+            return
+
+        target_range_max = target_count + int(target_count *0.2)
+        target_range_min = target_count - int(target_count *0.2)
+
+        not_ready = True
+
+        while not_ready:
+            if len(super_mesh.triangles) < target_range_min:
+                super_mesh = super_mesh.subdivide_loop(number_of_iterations=1)
+            elif len(super_mesh.triangles) > target_range_max:
+                super_mesh = super_mesh.simplify_quadric_decimation(target_number_of_triangles=target_count)
+            else:
+                not_ready = False
+        
+        self.face_count = len(super_mesh.triangles)
+        self.mesh = super_mesh
+        self.vertex_count = len(super_mesh.vertices)
+
+        return
 
     def update_database(self, name: str = None) -> None:
         '''Updates the database with this shape
