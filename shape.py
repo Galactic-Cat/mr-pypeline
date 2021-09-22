@@ -77,7 +77,7 @@ class Shape:
         log.debug('Loaded triangle mesh from file "%s"', self.path)
 
     def find_label_shape(self) -> None:
-        #Due to the nature of the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
+        #Due to the nature ofd the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
         log.error("Trying to find the label shape, has not be implemented.")
         pass
 
@@ -86,6 +86,57 @@ class Shape:
         self.aabb = None
         self.loaded = False
         self.mesh = None
+    
+    def to_dict(self) -> dict:
+        #TODO: Check for Label
+        if self.path is None or self.face_count is None or self.vertex_count is None:
+            return dict()
+        
+        data = dict()
+
+        # Update data
+        if self.aabb is not None:
+            data['aabb_max'] = self.aabb.get_max_bound()
+            data['aabb_min'] = self.aabb.get_min_bound()
+
+        data['face_count'] = self.face_count
+        data['label'] = self.label
+        data['loads'] = self.loaded
+        data['path'] = self.path
+        data['vertex_count'] = self.vertex_count
+
+        return data
+    
+    def save_mesh_file(self, output_path: str = None) -> None:
+        ''' Function responsible for saving the mesh file of a shape. Intended for pre-processing.
+        Once the mesh has been pre-processed we can save the new mesh file somewhere in the disk.
+
+        Args:
+            output_path (str): Folder to which we want to save the new mesh file.
+
+        '''
+        if not self.loaded:
+            log.error('The current shape object does not contain a mesh file.')
+            return
+            
+        if output_path is None:
+            log.error("No output path has been given to save the new mesh file to.")
+            return
+        
+        if self.path is None or not exists(self.path):
+            log.error('Path %s does not exist.', self.path)
+
+        new_path = output_path + '/' + basename(self.path)
+
+        io.write_triangle_mesh(new_path, self.mesh)
+
+        if not exists(new_path):
+            log.error('The new path "%s" does not exist, could not save mesh file to new location.', new_path)
+            return
+        
+        self.path = new_path
+
+        return
 
     def update_database(self, name: str = None) -> None:
         '''Updates the database with this shape

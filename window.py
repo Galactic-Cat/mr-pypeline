@@ -90,7 +90,8 @@ class MainWindow():
             return
         
         shape = Shape(mesh_file)
-        shape.read_non_mesh_data()
+        shape.load()
+        shape.find_aabb()
         shape.update_database()
 
         return 

@@ -133,3 +133,6 @@ dmypy.json
 
 # Test files
 *.test.*
+
+# Custom Files
+princeton

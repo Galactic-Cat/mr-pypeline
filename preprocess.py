@@ -4,14 +4,16 @@ from os import listdir, mkdir
 from os.path import exists, isfile, isdir
 from shape import Shape
 
+import pandas as pd
+
 log = getLogger('preprocess')
 SIZE_PARAM = 1000 #Random value for now
 
 
 def acceptable_size(shape: Shape) -> bool:
 
-    max_size = SIZE_PARAM + int(SIZE_PARAM * 0.1)
-    min_size = SIZE_PARAM - int(SIZE_PARAM * 0.1)
+    max_size = SIZE_PARAM + int(SIZE_PARAM * 0.2)
+    min_size = SIZE_PARAM - int(SIZE_PARAM * 0.2)
     if shape.vertex_count <= SIZE_PARAM and shape.vertex_count > min_size:
         return True
     
@@ -72,16 +74,28 @@ def preprocess(input_path: str, output_path: str) -> None:
         
         current_shape = Shape(file)
         current_shape.load()
+        current_shape.find_aabb()
 
+        #In this case we just need to resave the mesh in the output path
         if acceptable_size(current_shape):
-            #save the exact same file in the output directory
-            pass
+
+            current_shape.save_mesh_file(output_path)
+            entry = current_shape.to_dict()
+
+            if not entry:
+                log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
+                continue
+
+            preprocessed_files.append(entry)
         else:
             #Call preprocessing functions here
             #Give shape new "path"
-            pass
+            continue
 
+    
 
+    dataframe = pd.DataFrame(preprocessed_files)
+    dataframe.to_csv(output_path + 'database.csv')
 
     return
 

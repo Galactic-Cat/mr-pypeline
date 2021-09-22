@@ -1,0 +1,6 @@
+Mean:7744.44
+25th Perc:919.0
+50th Perc:2572.0
+75th Perc:9123.5
+Min:185
+Max:51956

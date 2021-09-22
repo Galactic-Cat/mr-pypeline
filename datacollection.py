@@ -2,7 +2,7 @@
 from logging import getLogger
 from os import listdir
 from os.path import exists, isfile, isdir
-
+import numpy as np
 from shape import Shape
 import pandas as pd
 
@@ -30,13 +30,31 @@ def visualize_data(output_path: str) -> None:
     return
 
 def calculate_features(output_path: str) -> None:
-    # Calculate Mean
-    # Calculate 25th percentile
-    # Calculate 50th percentile
-    # Calculate 75th percentile
-    # Calculate Min
-    # Calculate Max
-    pass
+    
+    if output_path is None:
+        log.error('The outpath path "%s" does not exist.', output_path)
+        return
+    
+    if dataframe is None:
+        log.error('Dataframe has not been instantiated.')
+        return
+
+    column_list = ['vertex_count', 'face_count']
+    for c in column_list:
+        data = dataframe[c].to_numpy()
+        
+        with open(output_path + "/" + c + "_results.txt", 'w') as f:
+            f.write("Mean:" + str(data.mean()) + '\n')
+            f.write("25th Perc:" + str(np.percentile(data, 25)) + '\n')
+            f.write("50th Perc:" + str(np.percentile(data, 50)) + '\n')
+            f.write("75th Perc:" + str(np.percentile(data, 75)) + '\n')
+            f.write("Min:" + str(data.min()) +'\n')
+            f.write("Max:" + str(data.max()) +'\n')
+            f.close()
+    
+    log.debug('Features have been calculated for the vertex and face count.')
+
+    return 
  
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
