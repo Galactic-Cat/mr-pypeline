@@ -36,7 +36,7 @@ class MainWindow():
         self.shape: Shape = None
         self.create_menu_bar()
         self.create_3D_scene()
-        self.load_databases() #Still to do: specify which SHAPE databases we want to add
+        self.load_databases() 
 
         
     def create_menu_bar(self):
@@ -57,8 +57,12 @@ class MainWindow():
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
 
-    def load(self, filepath) -> None:
-
+    def load(self, filepath: str) -> None:
+        ''' Loads the file into a shape to render the mesh into the scene.
+        
+        Args:
+            filepath (str): Path from which to load the mesh file.
+        '''
         if not exists(filepath):
             self.log.error('Try to load file at path %s which does not exist')
             return 
@@ -76,11 +80,10 @@ class MainWindow():
 
         #Wireframe
         wireframe = geometry.LineSet.create_from_triangle_mesh(self.shape.mesh)
-
+        
         #Add models to the scene
         self._scene_3d.scene.add_geometry('main_geometry', self.shape.mesh, material)
         self._scene_3d.scene.add_geometry('wireframe', wireframe ,material)
-        #o3d.visualization.draw_geometries([mesh], mesh_show_wireframe=True)
 
     def load_databases(self, filepath: str = None) -> None:
         if filepath is not None:
@@ -98,7 +101,7 @@ class MainWindow():
         shape = Shape(mesh_file)
         shape.load()
         shape.find_aabb()
-        shape.update_database()
+        #shape.update_database()
 
         return 
 
