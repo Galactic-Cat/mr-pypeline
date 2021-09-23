@@ -37,6 +37,7 @@ class MainWindow():
         self.create_menu_bar()
         self.create_3D_scene()
         self.load_databases() #Still to do: specify which SHAPE databases we want to add
+
         
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
@@ -64,17 +65,22 @@ class MainWindow():
         
         self._scene_3d.scene.clear_geometry()
 
-        mesh = io.read_triangle_mesh(filepath)
-        mesh.compute_vertex_normals()
+        self.shape = Shape(filepath)
+        self.shape.load()
+        self.shape.mesh.compute_vertex_normals()
 
         #Define Mesh Material
         material = rendering.Material()
         material.base_color = [1,0,0.5,1]
         material.shader = 'defaultLit'
 
-        #Add model to the scene
-        self._scene_3d.scene.add_geometry('main_geometry', mesh, material)
+        #Wireframe
+        wireframe = geometry.LineSet.create_from_triangle_mesh(self.shape.mesh)
 
+        #Add models to the scene
+        self._scene_3d.scene.add_geometry('main_geometry', self.shape.mesh, material)
+        self._scene_3d.scene.add_geometry('wireframe', wireframe ,material)
+        #o3d.visualization.draw_geometries([mesh], mesh_show_wireframe=True)
 
     def load_databases(self, filepath: str = None) -> None:
         if filepath is not None:

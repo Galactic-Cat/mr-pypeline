@@ -77,7 +77,7 @@ class Shape:
         log.debug('Loaded triangle mesh from file "%s"', self.path)
 
     def find_label_shape(self) -> None:
-        #Due to the nature ofd the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
+        #Due to the nature of the label file, we must navigate there and obtain the correct label by checking in which category our shape lands.
         log.error("Trying to find the label shape, has not be implemented.")
         pass
 
