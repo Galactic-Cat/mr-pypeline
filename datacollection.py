@@ -5,6 +5,7 @@ from os.path import exists, isfile, isdir
 import numpy as np
 from shape import Shape
 import pandas as pd
+import matplotlib.pyplot as plt
 
 log = getLogger('data_collection')
 
@@ -22,10 +23,19 @@ def visualize_data(output_path: str) -> None:
         log.error('Dataframe has not been instantiated.')
         return
     
-    for c in dataframe.columns:
-        ax = dataframe.hist(column = c,xrot = 90, legend = True)
-        fig = ax[0][0].get_figure()
-        fig.savefig(output_path + "/"+ c + '_hist.png')
+    ax = dataframe.hist(column = 'face_count',xrot = 90, legend = True, bins= 15)
+    axes = ax[0][0]
+    axes.set_title("Face count")
+    axes.legend(['Number of faces'])
+    fig = axes.get_figure()
+    fig.savefig(output_path + "/face_count"+ '_hist.png')
+
+    ax = dataframe.hist(column = 'vertex_count',xrot = 90, legend = True, bins= 15)
+    axes = ax[0][0]
+    axes.set_title("Vertex count")
+    axes.legend(['Number of vertices'])
+    fig = axes.get_figure()
+    fig.savefig(output_path + "/vertex_count" + '_hist.png')
 
     return
 
