@@ -137,3 +137,5 @@ dmypy.json
 # Custom Files
 princeton
 data_out/database
+data_out/
+latex_images/
