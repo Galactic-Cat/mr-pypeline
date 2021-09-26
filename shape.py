@@ -258,3 +258,78 @@ class Shape:
         shape.vertex_count = data['vertex_count']
         
         return shape
+    
+def load_database(path: str = None) -> None:
+    '''Loads a database from a csv file, or creates a blank one if a path is omitted
+    Args:
+        path (str, optional): The path to load. Create a blank database if None. Defaults to None.
+    '''
+    global database
+
+    if path is None:
+        database = dict()
+        return
+
+    if not exists(path) or basename(path)[-4:] != '.csv':
+        log.warning('Provided path "%s" does not exist or is not a csv file. Using a blank dictionary instead', path)
+        database = dict()
+        return
+
+    keys = ['aabb_max', 'aabb_min', 'face_count', 'label', 'loads', 'path', 'vertex_count']
+    database = dict()
+
+    with open(path, 'r') as f:
+        line = None
+
+        while line != '':
+            line = f.readline()
+            entry_size = len(keys) + 1
+            line_index = 0
+            split_line = line.split(',')
+            name = None
+
+            for word in split_line:
+                key_index = line_index % entry_size - 1
+                line_index += 1
+                word = word.strip()
+
+                # New database entry
+                if key_index < 0:
+                    name = word
+
+                    if name in database:
+                        log.warning('Name "%s" occurs multiple times, ignoring second occurence!', name)
+                        name = None
+                        continue
+
+                    if name == '':
+                        name = None
+                        continue
+
+                    database[name] = dict()
+                    continue
+
+                # Ignore data if name is not set (for duplicate names)
+                if name is None or name == '':
+                    continue
+
+                # Add data to database entry
+                key = keys[key_index]
+
+                # Preserve Nones
+                if word == '_none':
+                    database[name][key] = None
+                    continue
+
+                # Make sure the value is typecast correctly
+                if key in ['face_count', 'vertex_count']:
+                    database[name][key] = int(word)
+                elif key in ['loads']:
+                    database[name][key] = bool(word)
+                elif key in ['aabb_max', 'aabb_min']: # Special case, bounding box load numpy array
+                    coords = word.split(' ')
+                    database[name][key] = array(coords, dtype=float64)
+                else:
+                    database[name][key] = word
+
+    log.debug('Loaded %d database entries', len(database))

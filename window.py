@@ -74,16 +74,20 @@ class MainWindow():
         self.shape.mesh.compute_vertex_normals()
 
         #Define Mesh Material
-        material = rendering.Material()
-        material.base_color = [1,0,0.5,1]
-        material.shader = 'defaultLit'
+        material_mesh = rendering.Material()
+        material_mesh.base_color = [1,0,0.5,1]
+        material_mesh.shader = 'defaultLit'
 
         #Wireframe
         wireframe = geometry.LineSet.create_from_triangle_mesh(self.shape.mesh)
+
+        material_wf = rendering.Material()
+        material_wf.base_color = [1,1,1,1]
+        material_wf.shader = 'defaultLit'
         
         #Add models to the scene
-        self._scene_3d.scene.add_geometry('main_geometry', self.shape.mesh, material)
-        self._scene_3d.scene.add_geometry('wireframe', wireframe ,material)
+        self._scene_3d.scene.add_geometry('main_geometry', self.shape.mesh, material_mesh)
+        self._scene_3d.scene.add_geometry('wireframe', wireframe ,material_wf)
 
     def load_databases(self, filepath: str = None) -> None:
         if filepath is not None:
