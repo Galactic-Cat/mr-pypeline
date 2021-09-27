@@ -6,7 +6,7 @@ def run_preprocess() -> None:
     '''Runs the preprocessing part of the program'''
     # Late import to prevent loading unnecessary packages
     from preprocess import preprocess
-    preprocess(args.input[0], args.output[0])
+    preprocess(args.input[0], args.output[0], args.classification[0])
 
 def run_view() -> None:
     '''Runs the viewing part of the program'''

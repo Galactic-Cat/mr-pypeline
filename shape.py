@@ -113,7 +113,6 @@ class Shape:
 
         Args:
             output_path (str): Folder to which we want to save the new mesh file.
-
         '''
         if not self.loaded:
             log.error('The current shape object does not contain a mesh file.')
@@ -258,9 +257,11 @@ class Shape:
         shape.vertex_count = data['vertex_count']
         
         return shape
-    
+
+#Loads a full database
 def load_database(path: str = None) -> None:
     '''Loads a database from a csv file, or creates a blank one if a path is omitted
+
     Args:
         path (str, optional): The path to load. Create a blank database if None. Defaults to None.
     '''
@@ -277,7 +278,7 @@ def load_database(path: str = None) -> None:
 
     keys = ['aabb_max', 'aabb_min', 'face_count', 'label', 'loads', 'path', 'vertex_count']
     database = dict()
-
+    
     with open(path, 'r') as f:
         line = None
 
@@ -296,7 +297,7 @@ def load_database(path: str = None) -> None:
                 # New database entry
                 if key_index < 0:
                     name = word
-
+                    
                     if name in database:
                         log.warning('Name "%s" occurs multiple times, ignoring second occurence!', name)
                         name = None
@@ -333,3 +334,40 @@ def load_database(path: str = None) -> None:
                     database[name][key] = word
 
     log.debug('Loaded %d database entries', len(database))
+
+#Saves the new 
+def save_database(path: str) -> None:
+    '''Saves the database to a CSV file
+
+    Args:
+        path (str): The path to the file to save to
+    '''
+    # Add CSV extension if missing
+    if path[-4:] != '.csv':
+        path = path + '.csv'
+
+    keys = ['aabb_max', 'aabb_min', 'face_count', 'label', 'loads', 'path', 'vertex_count']
+    entries = []
+
+    for name in database:
+        entry = [name]
+        data = database[name]
+        
+        for key in keys:
+            # Preserve Nones
+            if not key in data or data[key] is None:
+                entry.append('_none')
+                continue
+            # Representation of the array
+            elif key in ['aabb_max', 'aabb_min']:
+                entry.append(sub(r'(^\s+|\s\s+|\s+$)', ' ', str(data[key])[1:-1]).strip())
+            # Other can just be stings
+            else:
+                entry.append(str(data[key]))
+
+        entries.append(','.join(entry))
+
+    with open(path, 'w') as f:
+        f.writelines(entries)
+
+    log.info('Saved %d database entries to "%s"', len(entries), path)
