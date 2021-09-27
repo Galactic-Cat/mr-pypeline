@@ -1,30 +1,57 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
-from os import listdir, mkdir
+from os import getcwd, listdir, mkdir
 from os.path import basename, exists, isfile, isdir
 from re import match, search, split
-from shape import Shape
 from typing import Dict
+from open3d import geometry, io, utility
 
 import pandas as pd
 
 log = getLogger('preprocess')
-SIZE_PARAM = 2000 # Check which value we want to use.
+SIZE_PARAM = 3500 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
-def subsample_mesh() -> None:
-    pass
 
-def supersample_mesh() -> None:
-    pass
+def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    current_mesh = current_mesh.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
+    return current_mesh
 
-def acceptable_size(shape: Shape) -> bool:
+def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    current_mesh = current_mesh.subdivide_midpoint()
 
-    if shape.face_count <= SIZE_PARAM and shape.face_count > SIZE_MIN:
+    face_count = len(current_mesh.triangles)
+
+    not_ready = True
+
+    while not_ready:
+        if face_count < SIZE_MIN:
+                current_mesh = current_mesh.subdivide_midpoint()
+        elif face_count > SIZE_MAX:
+                current_mesh = current_mesh.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
+        else:
+            not_ready = False
+
+        face_count = len(current_mesh.triangles)
+    
+    return current_mesh
+
+def find_aabb_points (current_mesh: geometry.TriangleMesh) -> tuple():
+
+    aabb = current_mesh.get_axis_aligned_bounding_box()
+
+    aabb_min = aabb.get_min_bound()
+    aabb_max = aabb.get_max_bound()
+
+    return (aabb_min, aabb_max)
+
+def acceptable_size(face_count: int) -> bool:
+
+    if face_count <= SIZE_PARAM and face_count > SIZE_MIN:
         return True
     
-    if shape.face_count >= SIZE_PARAM and shape.face_count < SIZE_MAX:
+    if face_count >= SIZE_PARAM and face_count < SIZE_MAX:
         return True
 
     return False
@@ -76,51 +103,67 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
     
     log.debug('Found %d files to preprocess', len(files))
 
-    # TODO: perform preprocessing on the files gathered in files: string[]
-    # Data set-up: file_path, vertex count, face count, label 
     preprocessed_files = []
 
     # Get label data
     labels = get_labels(classification_path) if classification_path is not None else None
 
     for file in files:
-        if file is None or not exists(file): #NOTE: This is probably uneseccary, as we found the files on the filesystem earlier.
-            log.error("The provided filepath %s does not exists", file)
-            continue
-        
-        current_shape = Shape(file)
-        current_shape.load()
-        current_shape.find_aabb()
+        log.debug('Preprocessing file: %s', file)
+        current_mesh = io.read_triangle_mesh(file)  
 
+        if current_mesh.is_empty():
+            log.error('Mesh at %s could not be read.', file)
+            continue
+
+        # Step 1: Get Information
+        label = None
+        face_count = len(current_mesh.triangles)
+        vertex_count = len(current_mesh.vertices)
+        log.debug('Face: (%d) and Vertex (%d)', face_count, vertex_count)
+        log.debug('Labels is %s', labels)
         # Find category if relevant
         if labels is not None:
             fnm = search(r'\d+', basename(file))
-
+        
+        # DATA ENTRY: Label 
             if fnm is not None and fnm[0] in labels:
-                current_shape.label = labels[fnm[0]]
-                log.debug('Labeled mesh %s as %s', basename(file), current_shape.label)
+                label = labels[fnm[0]]
+                log.debug('Labeled mesh %s as %s', basename(file), label)
 
-        #In this case we just need to resave the mesh in the output path
-        if not acceptable_size(current_shape):
-            previous_f_count = current_shape.face_count
-            previous_v_count = current_shape.vertex_count
+        log.debug('After label')
+        # Step 2: Supersample/Subsample
+        if not acceptable_size(face_count):
 
-            if current_shape.face_count > SIZE_MAX:
-                current_shape.subsample_mesh(SIZE_PARAM)
-
+            if face_count > SIZE_MAX:
+                current_mesh = sub_sample(current_mesh)
                 log.debug("Decimated shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
-                            current_shape._get_name_from_path(), previous_f_count, previous_v_count, current_shape.face_count, current_shape.vertex_count)
+                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
                 
-            elif current_shape.face_count < SIZE_MIN:
-                current_shape.supersample_mesh(SIZE_PARAM)
-
+            elif face_count < SIZE_MIN:
+                
+                current_mesh = super_sample(current_mesh)
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
-                            current_shape._get_name_from_path(), previous_f_count, previous_v_count, current_shape.face_count, current_shape.vertex_count)
+                           file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
-        current_shape.find_aabb()
-        current_shape.save_mesh_file(output_path) # Save the pre-processed shape into our database directory
-        entry = current_shape.to_dict()
+        log.debug('After acceptable size')
+        # Step 3: Get aabb points
+        # DATA ENTRY: Min and Max aabb points
+        aabb_min, aabb_max = find_aabb_points(current_mesh)
 
+        # Step 4: Normalize
+
+
+        # DATA ENTRY :Face and Vertex Count 
+        face_count = len(current_mesh.triangles)
+        vertex_count = len(current_mesh.vertices)
+
+        # DATA ENTRY: Mesh path
+        current_mesh_path = output_path + '/' + basename(file)
+        io.write_triangle_mesh(current_mesh_path, current_mesh)
+
+        entry = {'path': current_mesh_path, 'label': label, 
+                    'face_count': face_count, 'vertex_count': vertex_count} 
         if not entry:
             log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
             continue

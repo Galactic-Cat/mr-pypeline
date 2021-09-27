@@ -34,7 +34,6 @@ class MainWindow():
         
         self.create_menu_bar()
         self.create_3D_scene()
-        #self.load_databases() 
 
         
     def create_menu_bar(self):
@@ -86,63 +85,6 @@ class MainWindow():
         
         if use_wireframe:
             self._scene_3d.scene.add_geometry('wireframe', wireframe, wireframe_material)
-
-    def load_databases(self, filepath: str = None) -> None:
-        if filepath is not None:
-            self.log.error("Loading a database .csv file is not yet implemented.")
-
-        load_database(filepath)
-        self._load_raw_database(self.PRINCETON_PATH)
-
-
-    def _add_to_database(self, mesh_file = None) -> None:
-        if mesh_file is None:
-            self.log.warning("Attempted to load a non existant mesh.")
-            return
-        
-        # shape = Shape(mesh_file)
-        # shape.load()
-        # shape.find_aabb()
-        #shape.update_database()
-
-        return 
-
-
-    def _navigate_directory(self, path: str) -> None:
-        '''Recursively iterates through the entire directory (and its subdirectories!) searching for .off or .ply files.
-        
-        Args:
-            path (str) : Directory in which to search for mesh files.
-        '''
-        if exists(path):
-            for entry in listdir(path):
-                f = join(path, entry)
-                if isdir(f):
-                    self._navigate_directory(f)
-                if isfile(f):
-                    file_ext = basename(f)[-4:] 
-                    if  file_ext == '.off' or file_ext == '.ply':
-                        self._add_to_database(f)
-            return
-
-        self.log.error("Navigating to %s failed.", path)
-        return
-
-
-    def _load_raw_database(self, filepath:str) -> None:
-        
-        ''' Attemps to load a database
-        
-        '''
-
-        filepath = getcwd() + filepath
-
-        if not exists(filepath):
-            self.log.error("Database path %s does not exists.", filepath)
-
-        self._navigate_directory(filepath)
-
-        return
 
     def on_load_mesh(self) -> None:
         '''Attempts to load a file from a path into the viewport
