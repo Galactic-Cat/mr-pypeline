@@ -11,6 +11,12 @@ SIZE_PARAM = 2000 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
+def subsample_mesh() -> None:
+    pass
+
+def supersample_mesh() -> None:
+    pass
+
 def acceptable_size(shape: Shape) -> bool:
 
     if shape.face_count <= SIZE_PARAM and shape.face_count > SIZE_MIN:
