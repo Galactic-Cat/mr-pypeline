@@ -7,7 +7,6 @@ from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
-from shape import Shape, load_database
 
 
 class MainWindow():
@@ -33,10 +32,9 @@ class MainWindow():
         
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         
-        self.shape: Shape = None
         self.create_menu_bar()
         self.create_3D_scene()
-        self.load_databases() 
+        #self.load_databases() 
 
         
     def create_menu_bar(self):
@@ -57,37 +55,37 @@ class MainWindow():
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
 
-    def load(self, filepath: str) -> None:
-        ''' Loads the file into a shape to render the mesh into the scene.
+    def load(self, path: str, use_wireframe: bool = False) -> None:
+        '''Loads the file into a shape to render the mesh into the scene.
         
         Args:
-            filepath (str): Path from which to load the mesh file.
+            path (str): Path from which to load the mesh file.
         '''
-        if not exists(filepath):
-            self.log.error('Try to load file at path %s which does not exist')
+        if not exists(path):
+            self.log.error('Try to load file at path %s which does not exist', path)
             return 
         
-        self._scene_3d.scene.clear_geometry()
+        # Load and prepare the mesh and material
+        mesh_material = rendering.Material()
+        mesh_material.base_color = [1,0,0.5,1]
+        mesh_material.shader = 'defaultLit'
+        mesh = io.read_triangle_mesh(path)
+        
+        mesh.compute_vertex_normals()
 
-        self.shape = Shape(filepath)
-        self.shape.load()
-        self.shape.mesh.compute_vertex_normals()
-
-        #Define Mesh Material
-        material_mesh = rendering.Material()
-        material_mesh.base_color = [1,0,0.5,1]
-        material_mesh.shader = 'defaultLit'
-
-        #Wireframe
-        wireframe = geometry.LineSet.create_from_triangle_mesh(self.shape.mesh)
-
-        material_wf = rendering.Material()
-        material_wf.base_color = [1,1,1,1]
-        material_wf.shader = 'defaultLit'
+        # Create the Wireframe, if necessary
+        if use_wireframe:
+            wireframe = geometry.LineSet.create_from_triangle_mesh(mesh)
+            wireframe_material = rendering.Material()
+            wireframe_material.base_color = [1,1,1,1]
+            wireframe_material.shader = 'defaultLit'
         
         #Add models to the scene
-        self._scene_3d.scene.add_geometry('main_geometry', self.shape.mesh, material_mesh)
-        self._scene_3d.scene.add_geometry('wireframe', wireframe ,material_wf)
+        self._scene_3d.scene.clear_geometry()
+        self._scene_3d.scene.add_geometry('main_geometry', mesh, mesh_material)
+        
+        if use_wireframe:
+            self._scene_3d.scene.add_geometry('wireframe', wireframe, wireframe_material)
 
     def load_databases(self, filepath: str = None) -> None:
         if filepath is not None:
@@ -102,9 +100,9 @@ class MainWindow():
             self.log.warning("Attempted to load a non existant mesh.")
             return
         
-        shape = Shape(mesh_file)
-        shape.load()
-        shape.find_aabb()
+        # shape = Shape(mesh_file)
+        # shape.load()
+        # shape.find_aabb()
         #shape.update_database()
 
         return 
@@ -147,32 +145,31 @@ class MainWindow():
         return
 
     def on_load_mesh(self) -> None:
-
         '''Attempts to load a file from a path into the viewport
+
         Args:
             filepath (str): The file path
-        Returns:
-            None
         '''
-
         load_dlg = gui.FileDialog(gui.FileDialog.OPEN, "Choose a mesh to load",
                             self.window.theme)
+        
         load_dlg.add_filter(".ply .off", "Mesh files (.ply .off)")
         load_dlg.add_filter(".off", "Object File Format (.off)")
         load_dlg.add_filter(".ply", "Polygon Files (.ply)")
 
-        load_dlg.set_on_cancel(self._on_load_dialog_cancel)
+        load_dlg.set_on_cancel(self.window.close_dialog)
         load_dlg.set_on_done(self._on_load_dialog_done)
 
         self.window.show_dialog(load_dlg)
 
-    def _on_load_dialog_done(self, filename):
-        self.window.close_dialog()
-        self.load(filename)
+    def _on_load_dialog_done(self, path: str) -> None:
+        '''Closes the file loading dialog and loads the mesh
 
-
-    def _on_load_dialog_cancel(self):
+        Args:
+            path (str): The selected path
+        '''                
         self.window.close_dialog()
+        self.load(path)
 
     def on_clear_scene(self):
         font_size = self.window.theme.font_size
