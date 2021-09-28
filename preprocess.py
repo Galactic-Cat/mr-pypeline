@@ -121,7 +121,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
         log.debug('Face: (%d) and Vertex (%d)', face_count, vertex_count)
-        log.debug('Labels is %s', labels)
+
         # Find category if relevant
         if labels is not None:
             fnm = search(r'\d+', basename(file))
@@ -131,7 +131,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
                 label = labels[fnm[0]]
                 log.debug('Labeled mesh %s as %s', basename(file), label)
 
-        log.debug('After label')
         # Step 2: Supersample/Subsample
         if not acceptable_size(face_count):
 
@@ -146,13 +145,12 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
-        log.debug('After acceptable size')
         # Step 3: Get aabb points
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
         # Step 4: Normalize
-
+        current_mesh = normalize_mesh(current_mesh)
 
         # DATA ENTRY :Face and Vertex Count 
         face_count = len(current_mesh.triangles)
@@ -220,3 +218,28 @@ def get_labels(path: str) -> Dict[str, str]:
 
     log.debug('Retrieved %d labels from "%s"', len(mapping), path)
     return mapping
+
+def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    '''Normalize the mesh to be scaled and translated to a unit cube around the origin
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to normalize
+
+    Returns:
+        geometry.TriangleMesh: The normalized mesh
+    '''
+    aabb = mesh.get_axis_aligned_bounding_box()
+    max_bound = aabb.get_max_bound()
+    mesh_center = aabb.get_center()
+    min_bound = aabb.get_min_bound()
+
+    diff = abs(max_bound - min_bound)
+    max_dim = None
+
+    for i, value in enumerate(diff):
+        if max_dim is None or value > diff[max_dim]:
+            max_dim = i
+
+    scale_factor = 1 / diff[max_dim]
+
+    return mesh.scale(scale_factor, mesh_center).translate(-mesh_center)
