@@ -230,13 +230,14 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''
     aabb = mesh.get_axis_aligned_bounding_box()
     max_bound = aabb.get_max_bound()
-    mesh_center = aabb.get_center()
+    mesh_center = mesh.get_center() #We might need to calculate the centroid, not the center.
     min_bound = aabb.get_min_bound()
 
     diff = abs(max_bound - min_bound)
     max_dim = None
 
     for i, value in enumerate(diff):
+        #print(i)
         if max_dim is None or value > diff[max_dim]:
             max_dim = i
 
