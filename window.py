@@ -54,7 +54,7 @@ class MainWindow():
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
 
-    def load(self, path: str, use_wireframe: bool = False) -> None:
+    def load(self, path: str, use_wireframe: bool = True) -> None:
         '''Loads the file into a shape to render the mesh into the scene.
         
         Args:

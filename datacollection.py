@@ -2,8 +2,8 @@
 from logging import getLogger
 from os import listdir
 from os.path import exists, isfile, isdir
+from open3d import io
 import numpy as np
-from shape import Shape
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -106,10 +106,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             log.error("The provided filepath %s does not exists", file)
             continue
         
-        current_shape = Shape(file)
-        current_shape.load()
+        current_mesh = io.read_triangle_mesh(file)
 
-        shape_information = {"face_count" : current_shape.face_count, "vertex_count" : current_shape.vertex_count}
+        shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices)}
 
         files_information.append(shape_information)
 
