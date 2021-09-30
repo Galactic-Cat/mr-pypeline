@@ -149,6 +149,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
+        # TODO: Step 3.1, rotate mesh
+
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
