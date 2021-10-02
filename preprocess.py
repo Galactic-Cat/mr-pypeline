@@ -269,7 +269,15 @@ def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     y_axis = eigen_vectors[1]
     z_axis = eigen_vectors[0] * eigen_vectors [1]
 
-    print(z_axis)
+    centroid = mesh.get_center()
+
+    for vertex in mesh.vertices:
+        x_coord = (vertex[0] - centroid) * x_axis
+        y_coord = (vertex[1] - centroid) * y_axis
+        z_coord = (vertex[2] - centroid) * z_axis
+
+        projected_vertex = np.asarray([x_coord, y_coord, z_coord])
+        pass
     return mesh
 
 
