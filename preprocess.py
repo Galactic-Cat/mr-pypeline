@@ -5,7 +5,7 @@ from os.path import basename, exists, isfile, isdir
 from re import match, search, split
 from typing import Dict
 from open3d import geometry, io, utility
-
+import numpy as np
 import pandas as pd
 
 log = getLogger('preprocess')
@@ -219,6 +219,58 @@ def get_labels(path: str) -> Dict[str, str]:
     log.debug('Retrieved %d labels from "%s"', len(mapping), path)
     return mapping
 
+def compute_PCA(mesh:geometry.TriangleMesh):
+    vertex_count = len(mesh.vertices)
+
+    x_coords = []
+    y_coords = []
+    z_coords = []
+
+    for row in np.asarray(mesh.vertices):
+        x_coords.append(row[0])
+        y_coords.append(row[1])
+        z_coords.append(row[2])
+
+    #Fill in matrix with coordinate points
+    A = np.zeros((3, vertex_count), dtype=float)
+    A[0] = np.asarray(x_coords)
+    A[1] = np.asarray(y_coords)
+    A[2] = np.asarray(z_coords)
+
+    #Calculate covariance matrix
+    A_cov = np.cov(A)
+
+    #Calculate eigens
+    eigenvalues, eigenvectors = np.linalg.eig(A_cov)
+
+    return eigenvalues, eigenvectors
+
+
+def compute_OBB(mesh: geometry.TriangleMesh) -> np.array:
+    pass
+
+def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
+
+    eigen_values, eigen_vectors = zip(*sorted(zip(eigen_values,eigen_vectors), reverse=True))
+    eigen_vectors = np.asarray(eigen_vectors)
+
+    return eigen_values, eigen_vectors
+
+def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+
+    log.error('Pose normalization is not complete.')
+
+    eigen_values, eigen_vectors= compute_PCA(mesh)
+    eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
+
+    x_axis =  eigen_vectors[0]
+    y_axis = eigen_vectors[1]
+    z_axis = eigen_vectors[0] * eigen_vectors [1]
+
+    print(z_axis)
+    return mesh
+
+
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Normalize the mesh to be scaled and translated to a unit cube around the origin
 
@@ -233,6 +285,22 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     mesh_center = mesh.get_center() #We might need to calculate the centroid, not the center.
     min_bound = aabb.get_min_bound()
 
+    # STEP 1: TRANSLATION, First translate object to center of the world
+
+    mesh = mesh.translate(-mesh_center)
+
+    mesh = pose_normalization(mesh)
+
+        #Update points by aligning with the coordinate frame.
+            # For this we do 
+            # x = (px_i - c) dotproduct eigenvector1
+            # y = (py_i - c) dotproduct eigenvector2
+            # z = (pz_i - c) dotproduct (eigenvector1 x eigenvector2)  to get the min and max.
+        # Now with the OBB 
+
+    # STEP 3: FLIP test,
+
+    # STEP 4: Scale, use OBB max and min to calculate scale factor.
     diff = abs(max_bound - min_bound)
     max_dim = None
 
@@ -244,3 +312,10 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     scale_factor = 1 / diff[max_dim]
 
     return mesh.scale(scale_factor, mesh_center).translate(-mesh_center)
+
+
+if __name__ == '__main__':
+
+    mesh = io.read_triangle_mesh('./plane.ply')
+
+    normalize_mesh(mesh)

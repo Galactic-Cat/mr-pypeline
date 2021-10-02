@@ -121,3 +121,6 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
+
+#TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
+#TODO COLLECT HISTOGRAM OF BOUNDING BOX MAX SIZES
