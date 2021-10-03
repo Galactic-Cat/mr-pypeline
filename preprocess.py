@@ -252,14 +252,14 @@ def compute_OBB(mesh: geometry.TriangleMesh) -> np.array:
     pass
 
 def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
-
+    eigen_values = np.abs(eigen_values)
     eigen_values, eigen_vectors = zip(*sorted(zip(eigen_values,eigen_vectors), reverse=True))
     eigen_vectors = np.asarray(eigen_vectors)
 
     return eigen_values, eigen_vectors
 
 def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-
+    
     eigen_values, eigen_vectors= compute_PCA(mesh)
     eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
 
@@ -269,13 +269,16 @@ def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     centroid = mesh.get_center()
 
+    print("Centroid:", centroid)
     vertices = []
 
     for vertex in np.asarray(mesh.vertices):
 
-        x_coord = np.dot((vertex[0] - centroid), x_axis)
-        y_coord = np.dot((vertex[1] - centroid), y_axis)
-        z_coord = np.dot((vertex[2] - centroid), z_axis)
+        coords =  vertex - centroid
+
+        x_coord = np.dot(coords, x_axis)
+        y_coord = np.dot(coords, y_axis)
+        z_coord = np.dot(coords, z_axis)
 
         projected_vertex = np.asarray([x_coord, y_coord, z_coord])
         vertices.append(projected_vertex)
