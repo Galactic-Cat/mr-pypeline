@@ -248,7 +248,7 @@ def compute_PCA(mesh:geometry.TriangleMesh):
     return eigenvalues, eigenvectors
 
 
-def compute_OBB(mesh: geometry.TriangleMesh) -> np.array:
+def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     pass
 
 def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
@@ -258,7 +258,7 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
 
     return eigen_values, eigen_vectors
 
-def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     
     eigen_values, eigen_vectors= compute_PCA(mesh)
     eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
@@ -269,7 +269,6 @@ def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     centroid = mesh.get_center()
 
-    print("Centroid:", centroid)
     vertices = []
 
     for vertex in np.asarray(mesh.vertices):
@@ -289,6 +288,22 @@ def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh
 
+def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    aabb = mesh.get_axis_aligned_bounding_box()
+    max_bound = aabb.get_max_bound()
+    mesh_center = mesh.get_center()
+    min_bound = aabb.get_min_bound()
+
+    diff = abs(max_bound - min_bound)
+    max_dim = None
+
+    for i, value in enumerate(diff):
+        if max_dim is None or value > diff[max_dim]:
+            max_dim = i
+
+    scale_factor = 1 / diff[max_dim]
+
+    return mesh.scale(scale_factor, mesh_center)
 
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Normalize the mesh to be scaled and translated to a unit cube around the origin
@@ -299,31 +314,22 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The normalized mesh
     '''
-    aabb = mesh.get_axis_aligned_bounding_box()
-    max_bound = aabb.get_max_bound()
+
     mesh_center = mesh.get_center() #We might need to calculate the centroid, not the center.
-    min_bound = aabb.get_min_bound()
 
     # STEP 1: TRANSLATION, First translate object to center of the world
 
     mesh = mesh.translate(-mesh_center)
 
-    mesh = pose_normalization(mesh)
-
-    oob = compute_OBB(mesh)
-        # Now with the OBB 
+    mesh = pose_alignment(mesh)
 
     # STEP 3: FLIP test,
 
+    mesh = flip_test(mesh)
+
     # STEP 4: Scale, use OBB max and min to calculate scale factor.
-    diff = abs(max_bound - min_bound)
-    max_dim = None
 
-    for i, value in enumerate(diff):
-        if max_dim is None or value > diff[max_dim]:
-            max_dim = i
-
-    scale_factor = 1 / diff[max_dim]
+    mesh = scale_mesh(mesh)
 
     return mesh
 
