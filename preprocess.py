@@ -260,24 +260,30 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
 
 def pose_normalization(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
-    log.error('Pose normalization is not complete.')
-
     eigen_values, eigen_vectors= compute_PCA(mesh)
     eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
 
     x_axis =  eigen_vectors[0]
     y_axis = eigen_vectors[1]
-    z_axis = eigen_vectors[0] * eigen_vectors [1]
+    z_axis = np.cross(eigen_vectors[0], eigen_vectors[1])
 
     centroid = mesh.get_center()
 
-    for vertex in mesh.vertices:
-        x_coord = (vertex[0] - centroid) * x_axis
-        y_coord = (vertex[1] - centroid) * y_axis
-        z_coord = (vertex[2] - centroid) * z_axis
+    vertices = []
+
+    for vertex in np.asarray(mesh.vertices):
+
+        x_coord = np.dot((vertex[0] - centroid), x_axis)
+        y_coord = np.dot((vertex[1] - centroid), y_axis)
+        z_coord = np.dot((vertex[2] - centroid), z_axis)
 
         projected_vertex = np.asarray([x_coord, y_coord, z_coord])
-        pass
+        vertices.append(projected_vertex)
+    
+    np_vertices = np.stack(vertices)
+
+    mesh.vertices = utility.Vector3dVector(np_vertices)
+
     return mesh
 
 
@@ -301,11 +307,7 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     mesh = pose_normalization(mesh)
 
-        #Update points by aligning with the coordinate frame.
-            # For this we do 
-            # x = (px_i - c) dotproduct eigenvector1
-            # y = (py_i - c) dotproduct eigenvector2
-            # z = (pz_i - c) dotproduct (eigenvector1 x eigenvector2)  to get the min and max.
+    oob = compute_OBB(mesh)
         # Now with the OBB 
 
     # STEP 3: FLIP test,
@@ -315,13 +317,12 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     max_dim = None
 
     for i, value in enumerate(diff):
-        #print(i)
         if max_dim is None or value > diff[max_dim]:
             max_dim = i
 
     scale_factor = 1 / diff[max_dim]
 
-    return mesh.scale(scale_factor, mesh_center).translate(-mesh_center)
+    return mesh
 
 
 if __name__ == '__main__':
