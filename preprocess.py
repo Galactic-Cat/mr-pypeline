@@ -249,7 +249,14 @@ def compute_PCA(mesh:geometry.TriangleMesh):
 
 
 def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    
+    '''Function that mirrors the mesh if necessary on the x,y or z axis.
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to mirror
+
+    Returns:
+        geometry.TriangleMesh: The mirrored mesh
+    '''
     f_sign = [0,0,0]
 
     vertices =  np.asarray(mesh.vertices)
@@ -271,6 +278,16 @@ def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     f_sign = [1 if r >= 0 else -1 for i,r in enumerate(f_sign) ]
 
+    updated_vertices = []
+
+    for vertex in vertices:
+        mirror = vertex * f_sign
+        updated_vertices.append(mirror)
+    
+    np_vertices = np.stack(updated_vertices)
+
+    mesh.vertices = utility.Vector3dVector(np_vertices)
+
     return mesh
 
 def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
@@ -281,7 +298,14 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
     return eigen_values, eigen_vectors
 
 def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    
+    '''Function that aligns the mesh to the xyz axis.
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to align
+
+    Returns:
+        geometry.TriangleMesh: The axis-aligned mesh
+    '''
     eigen_values, eigen_vectors= compute_PCA(mesh)
     eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
 
@@ -311,7 +335,14 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     return mesh
 
 def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    '''Function that scales the mesh to fit into an unit cube.
 
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to scale
+
+    Returns:
+        geometry.TriangleMesh: The scaled mesh
+    '''
     aabb = mesh.get_axis_aligned_bounding_box()
     max_bound = aabb.get_max_bound()
     mesh_center = mesh.get_center()
@@ -328,8 +359,9 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh.scale(scale_factor, mesh_center)
 
+
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    '''Normalize the mesh to be scaled and translated to a unit cube around the origin
+    '''Function that calls every necessary normalization step.
 
     Args:
         mesh (geometry.TriangleMesh): The mesh to normalize
@@ -338,19 +370,21 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The normalized mesh
     '''
 
-    mesh_center = mesh.get_center() #We might need to calculate the centroid, not the center.
+    mesh_center = mesh.get_center()
 
-    # STEP 1: TRANSLATION, First translate object to center of the world
+    # STEP 1: Translate
 
     mesh = mesh.translate(-mesh_center)
 
+    # STEP 2: Align
+
     mesh = pose_alignment(mesh)
 
-    # STEP 3: FLIP test,
+    # STEP 3: Flip test
 
     mesh = flip_test(mesh)
 
-    # STEP 4: Scale, use OBB max and min to calculate scale factor.
+    # STEP 4: Scale
 
     mesh = scale_mesh(mesh)
 
