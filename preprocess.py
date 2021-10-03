@@ -249,7 +249,29 @@ def compute_PCA(mesh:geometry.TriangleMesh):
 
 
 def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    pass
+    
+    f_sign = [0,0,0]
+
+    vertices =  np.asarray(mesh.vertices)
+
+    for face in np.asarray(mesh.triangles):
+
+        vertex_total = np.zeros(3,dtype=float)
+
+        for vertex in face:
+            vertex_total+=vertices[vertex]
+
+        center_of_face = vertex_total/3
+
+        for i,coord in enumerate(center_of_face):
+            if coord >= 0:
+                f_sign[i] += 1
+            else:
+                f_sign[i] -= 1
+
+    f_sign = [1 if r >= 0 else -1 for i,r in enumerate(f_sign) ]
+
+    return mesh
 
 def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
     eigen_values = np.abs(eigen_values)
@@ -289,6 +311,7 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     return mesh
 
 def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+
     aabb = mesh.get_axis_aligned_bounding_box()
     max_bound = aabb.get_max_bound()
     mesh_center = mesh.get_center()
