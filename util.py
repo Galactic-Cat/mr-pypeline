@@ -1,7 +1,42 @@
 '''Utility functions'''
-
 from typing import Iterable, Tuple
 
+import numpy as np
+from open3d import geometry
+
+def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array]:
+    '''Computes the eigenvalues and eigenvectors of a mesh
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to compute the eigenvalues for
+
+    Returns:
+        Tuple[np.array, np.array]: An array containing in order: the computed eigenvalues and their eigenvectors
+    '''
+    vertex_count = len(mesh.vertices)
+
+    x_coords = []
+    y_coords = []
+    z_coords = []
+
+    for row in np.asarray(mesh.vertices):
+        x_coords.append(row[0])
+        y_coords.append(row[1])
+        z_coords.append(row[2])
+
+    #Fill in matrix with coordinate points
+    A = np.zeros((3, vertex_count), dtype=float)
+    A[0] = np.asarray(x_coords)
+    A[1] = np.asarray(y_coords)
+    A[2] = np.asarray(z_coords)
+
+    #Calculate covariance matrix
+    A_cov = np.cov(A)
+
+    #Calculate eigens
+    eigenvalues, eigenvectors = np.linalg.eig(A_cov)
+
+    return eigenvalues, eigenvectors
 
 def grouped(iterable: Iterable, count: int) -> Tuple[Iterable]:
     '''Returns the iterable zipped into groups of a specified count

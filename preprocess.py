@@ -4,9 +4,12 @@ from os import getcwd, listdir, mkdir
 from os.path import basename, exists, isfile, isdir
 from re import match, search, split
 from typing import Dict
-from open3d import geometry, io, utility
+
 import numpy as np
+from open3d import geometry, io, utility
 import pandas as pd
+
+from util import compute_pca
 
 log = getLogger('preprocess')
 SIZE_PARAM = 3500 # Check which value we want to use.
@@ -221,33 +224,6 @@ def get_labels(path: str) -> Dict[str, str]:
     log.debug('Retrieved %d labels from "%s"', len(mapping), path)
     return mapping
 
-def compute_PCA(mesh:geometry.TriangleMesh):
-    vertex_count = len(mesh.vertices)
-
-    x_coords = []
-    y_coords = []
-    z_coords = []
-
-    for row in np.asarray(mesh.vertices):
-        x_coords.append(row[0])
-        y_coords.append(row[1])
-        z_coords.append(row[2])
-
-    #Fill in matrix with coordinate points
-    A = np.zeros((3, vertex_count), dtype=float)
-    A[0] = np.asarray(x_coords)
-    A[1] = np.asarray(y_coords)
-    A[2] = np.asarray(z_coords)
-
-    #Calculate covariance matrix
-    A_cov = np.cov(A)
-
-    #Calculate eigens
-    eigenvalues, eigenvectors = np.linalg.eig(A_cov)
-
-    return eigenvalues, eigenvectors
-
-
 def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that mirrors the mesh if necessary on the x,y or z axis.
 
@@ -306,7 +282,7 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
-    eigen_values, eigen_vectors= compute_PCA(mesh)
+    eigen_values, eigen_vectors= compute_pca(mesh)
     eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
 
     x_axis =  eigen_vectors[0]
