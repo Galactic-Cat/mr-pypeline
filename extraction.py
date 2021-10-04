@@ -1,12 +1,12 @@
 '''Module for extracting features from 3D meshes'''
 from logging import getLogger
-from math import floor, sqrt
+from math import floor, pi, sqrt
 from typing import List
 
 from open3d import geometry, io
 import numpy as np
 
-from util import grouped
+from util import compute_pca, grouped
 
 log = getLogger('features')
 SAMPLE_SIZE = 250
@@ -106,6 +106,38 @@ def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE
         entries.append(distance_between_points(vertices[index_a], vertices[index_b]))
 
     return entries
+
+def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
+    '''Extract some simple features from a 3D mesh
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to extract features from
+
+    Returns:
+        List[float]: A list of features, in order: surface area, compactness, AABB volume, diameter, and eccentricity
+    '''
+    values = []
+
+    # Get the surface area
+    surface_area = mesh.get_surface_area()
+    values.append(surface_area)
+    
+    # Get compactness
+    values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+    
+    # Get AABB volume
+    values.append(mesh.get_axis_aligned_bounding_box().volume())
+    
+    # Get diameter
+    # TODO: Check if this is always correct, in my mind it is, but I'm not sure
+    oobb = mesh.get_oriented_bounding_box()
+    values.append(max(oobb.get_max_bound() - oobb.get_min_bound()))
+    
+    # Get eccentricity
+    eigenvalues, _ = compute_pca(mesh)
+    values.append(abs(max(eigenvalues)) / abs(min(eigenvalues)))
+    
+    return values
 
 if __name__ == '__main__':
     mesh = io.read_triangle_mesh('./data_out/database/m100.off')
