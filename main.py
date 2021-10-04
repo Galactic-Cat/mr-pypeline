@@ -20,7 +20,7 @@ def run_view() -> None:
     # Create a window and load a file
     window = MainWindow(1024,768)
 
-    window.load('./plane.ply')
+    window.load('./test_shapes/plane.ply')
     gui.Application.instance.run()
 
 def run_data_collection() -> None:

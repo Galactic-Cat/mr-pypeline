@@ -393,6 +393,6 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
 if __name__ == '__main__':
 
-    mesh = io.read_triangle_mesh('./plane.ply')
+    mesh = io.read_triangle_mesh('./test_shapes/plane.ply')
 
     normalize_mesh(mesh)
