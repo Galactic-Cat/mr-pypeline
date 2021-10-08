@@ -152,8 +152,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
-        # TODO: Step 3.1, rotate mesh
-
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
@@ -266,13 +264,6 @@ def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh
 
-def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
-    eigen_values = np.abs(eigen_values)
-    eigen_values, eigen_vectors = zip(*sorted(zip(eigen_values,eigen_vectors), reverse=True))
-    eigen_vectors = np.asarray(eigen_vectors)
-
-    return eigen_values, eigen_vectors
-
 def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that aligns the mesh to the xyz axis.
 
@@ -282,14 +273,9 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
-    eigen_values, eigen_vectors= compute_pca(mesh)
-    eigen_values, eigen_vectors = sort_eigen_vectors(eigen_values, eigen_vectors)
+    x_axis, y_axis, z_axis = compute_pca(mesh)
 
-    x_axis =  eigen_vectors[0]
-    y_axis = eigen_vectors[1]
-    z_axis = np.cross(eigen_vectors[0], eigen_vectors[1])
-
-    centroid = mesh.get_center()
+    centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 
     vertices = []
 
@@ -365,10 +351,3 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     mesh = scale_mesh(mesh)
 
     return mesh
-
-
-if __name__ == '__main__':
-
-    mesh = io.read_triangle_mesh('./test_shapes/plane.ply')
-
-    normalize_mesh(mesh)

@@ -4,7 +4,14 @@ from typing import Iterable, Tuple
 import numpy as np
 from open3d import geometry
 
-def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array]:
+def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
+    eigen_values = np.abs(eigen_values)
+    eigen_values, eigen_vectors = zip(*sorted(zip(eigen_values,eigen_vectors), reverse=True))
+    eigen_vectors = np.asarray(eigen_vectors)
+
+    return eigen_values, eigen_vectors
+
+def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.array]:
     '''Computes the eigenvalues and eigenvectors of a mesh
 
     Args:
@@ -36,7 +43,13 @@ def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array]:
     #Calculate eigens
     eigenvalues, eigenvectors = np.linalg.eig(A_cov)
 
-    return eigenvalues, eigenvectors
+    eigenvalues, eigenvectors = sort_eigen_vectors(eigenvalues, eigenvectors)
+    
+    x_axis =  eigenvectors[0]
+    y_axis = eigenvectors[1]
+    z_axis = np.cross(eigenvectors[0], eigenvectors[1])
+    
+    return x_axis, y_axis, z_axis
 
 def grouped(iterable: Iterable, count: int) -> Tuple[Iterable]:
     '''Returns the iterable zipped into groups of a specified count
