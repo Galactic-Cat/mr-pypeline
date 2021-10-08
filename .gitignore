@@ -135,8 +135,8 @@ dmypy.json
 *.test.*
 
 # Custom Files
-princeton
-data_out/database
-data
-output
+princeton/
+data_out/
+data/
+output/
 latex_images/
