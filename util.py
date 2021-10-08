@@ -11,14 +11,14 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
 
     return eigen_values, eigen_vectors
 
-def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.array]:
+def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.array, np.array]:
     '''Computes the eigenvalues and eigenvectors of a mesh
 
     Args:
         mesh (geometry.TriangleMesh): The mesh to compute the eigenvalues for
 
     Returns:
-        Tuple[np.array, np.array]: An array containing in order: the computed eigenvalues and their eigenvectors
+        Tuple[np.array, np.array]: A 4-tuple containing the eigenvectors on respectively the x, y, and z axis, and the eigenvalues
     '''
     vertex_count = len(mesh.vertices)
 
@@ -45,11 +45,11 @@ def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.arr
 
     eigenvalues, eigenvectors = sort_eigen_vectors(eigenvalues, eigenvectors)
     
-    x_axis =  eigenvectors[0]
+    x_axis = eigenvectors[0]
     y_axis = eigenvectors[1]
     z_axis = np.cross(eigenvectors[0], eigenvectors[1])
     
-    return x_axis, y_axis, z_axis
+    return x_axis, y_axis, z_axis, eigenvalues
 
 def grouped(iterable: Iterable, count: int) -> Tuple[Iterable]:
     '''Returns the iterable zipped into groups of a specified count

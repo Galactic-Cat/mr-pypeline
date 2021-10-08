@@ -273,7 +273,7 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
-    x_axis, y_axis, z_axis = compute_pca(mesh)
+    x_axis, y_axis, z_axis, _ = compute_pca(mesh)
 
     centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 

@@ -1,10 +1,11 @@
 '''Module for extracting features from 3D meshes'''
 from logging import getLogger
 from math import floor, pi, sqrt
+from time import perf_counter_ns as perf_counter # TODO: Remove import after timing is no longer used
 from typing import List
 
-from open3d import geometry, io
 import numpy as np
+from open3d import geometry, io
 
 from util import compute_pca, grouped
 
@@ -123,18 +124,24 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     values.append(surface_area)
     
     # Get compactness
-    values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+    if mesh.is_watertight():
+        values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+    else:
+        values.append(None)
+        log.error("Cannot find compactness of a non-watertight mesh")
     
     # Get AABB volume
     values.append(mesh.get_axis_aligned_bounding_box().volume())
-    
+
     # Get diameter
-    # TODO: Check if this is always correct, in my mind it is, but I'm not sure
-    oobb = mesh.get_oriented_bounding_box()
-    values.append(max(oobb.get_max_bound() - oobb.get_min_bound()))
+    # NOTE: using a bruteforce method, might need changing if it's too slow
+    start_time = perf_counter()
+    vertices = np.asarray(mesh.vertices)
+    values.append(max([distance_between_points(a, b) for a in vertices for b in vertices]))
+    print('Bruteforce diameter took %d nanoseconds for %d vertices' % (perf_counter() - start_time, vertices.shape[0]))
     
     # Get eccentricity
-    eigenvalues, _ = compute_pca(mesh)
+    _, _, _, eigenvalues = compute_pca(mesh)
     values.append(abs(max(eigenvalues)) / abs(min(eigenvalues)))
     
     return values
@@ -142,7 +149,10 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
 if __name__ == '__main__':
     mesh = io.read_triangle_mesh('./data_out/database/m100.off')
     mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
-    lister = distance_barycenter_to_random(mesh, 10)
-    print(lister)
 
-    convert_entries_into_hist([0,.1,.2,.3,.4,.5,.6,.7,.8,.9], 10)
+    simple_features(mesh)
+
+    #lister = distance_barycenter_to_random(mesh, 10)
+    #print(lister)
+
+    #convert_entries_into_hist([0,.1,.2,.3,.4,.5,.6,.7,.8,.9], 10)
