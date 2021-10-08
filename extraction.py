@@ -1,7 +1,6 @@
 '''Module for extracting features from 3D meshes'''
 from logging import getLogger
 from math import floor, pi, sqrt
-from time import perf_counter_ns as perf_counter # TODO: Remove import after timing is no longer used
 from typing import List
 
 import numpy as np
@@ -134,11 +133,15 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     values.append(mesh.get_axis_aligned_bounding_box().volume())
 
     # Get diameter
-    # NOTE: using a bruteforce method, might need changing if it's too slow
-    start_time = perf_counter()
+    # This is using a bruteforce method, but relying mostly on numpy's C code, so it takes ~0.5 seconds for 2000 vertices
     vertices = np.asarray(mesh.vertices)
-    values.append(max([distance_between_points(a, b) for a in vertices for b in vertices]))
-    print('Bruteforce diameter took %d nanoseconds for %d vertices' % (perf_counter() - start_time, vertices.shape[0]))
+    vertex_count = vertices.shape[0]
+    squared_distances = np.zeros((vertex_count, vertex_count))
+
+    for i in range(vertex_count):
+        squared_distances[i,:] = np.sum(np.square(vertices[i,:] - vertices), axis=1)
+
+    values.append(np.sqrt(np.max(squared_distances)))
     
     # Get eccentricity
     _, _, _, eigenvalues = compute_pca(mesh)
