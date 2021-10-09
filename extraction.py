@@ -3,8 +3,8 @@ from logging import getLogger
 from math import floor, pi, sqrt
 from typing import List
 
-from open3d import geometry, io
 import numpy as np
+from open3d import geometry, io
 
 import matplotlib.pyplot as plt
 
@@ -170,18 +170,28 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     values.append(surface_area)
     
     # Get compactness
-    values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+    if mesh.is_watertight():
+        values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+    else:
+        values.append(None)
+        log.error("Cannot find compactness of a non-watertight mesh")
     
     # Get AABB volume
     values.append(mesh.get_axis_aligned_bounding_box().volume())
-    
+
     # Get diameter
-    # TODO: Check if this is always correct, in my mind it is, but I'm not sure
-    oobb = mesh.get_oriented_bounding_box()
-    values.append(max(oobb.get_max_bound() - oobb.get_min_bound()))
+    # This is using a bruteforce method, but relying mostly on numpy's C code, so it takes ~0.5 seconds for 2000 vertices
+    vertices = np.asarray(mesh.vertices)
+    vertex_count = vertices.shape[0]
+    squared_distances = np.zeros((vertex_count, vertex_count))
+
+    for i in range(vertex_count):
+        squared_distances[i,:] = np.sum(np.square(vertices[i,:] - vertices), axis=1)
+
+    values.append(np.sqrt(np.max(squared_distances)))
     
     # Get eccentricity
-    eigenvalues, _ = compute_pca(mesh)
+    _, _, _, eigenvalues = compute_pca(mesh)
     values.append(abs(max(eigenvalues)) / abs(min(eigenvalues)))
     
     return values
@@ -200,3 +210,10 @@ if __name__ == '__main__':
     hist_D2 = visualize_histogram(norm_D2, "random_to_random", "./output/hist/")
 
     # #TODO: Implement D3 and D4
+
+    simple_features(mesh)
+
+    #lister = distance_barycenter_to_random(mesh, 10)
+    #print(lister)
+
+    #convert_entries_into_hist([0,.1,.2,.3,.4,.5,.6,.7,.8,.9], 10)
