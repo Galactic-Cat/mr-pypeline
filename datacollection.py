@@ -2,7 +2,9 @@
 from logging import getLogger
 from os import listdir
 from os.path import exists, isfile, isdir
-from open3d import io
+from open3d import io, geometry
+from preprocess import find_aabb_points
+from math import sqrt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,6 +39,13 @@ def visualize_data(output_path: str) -> None:
     fig = axes.get_figure()
     fig.savefig(output_path + "/vertex_count" + '_hist.png')
 
+    ax = dataframe.hist(column = 'aabb_size',xrot = 90, legend = True, bins= 15)
+    axes = ax[0][0]
+    axes.set_title("AABB Maximum length")
+    axes.legend(['Length'])
+    fig = axes.get_figure()
+    fig.savefig(output_path + "/aabb_size" + '_hist.png')
+
     return
 
 def calculate_features(output_path: str) -> None:
@@ -64,8 +73,18 @@ def calculate_features(output_path: str) -> None:
     
     log.debug('Features have been calculated for the vertex and face count.')
 
-    return 
+    return
+
+def verify_scaling(current_mesh: geometry.TriangleMesh):
+
+    min, max = find_aabb_points(current_mesh)
+    print (np.max(np.abs(max) + np.abs(min)))
+    return round(np.max(np.abs(max) + np.abs(min)), 4)
  
+def verify_rotation():
+    #check that the pca is orthogonal, if it is then we can simply say it worked.
+    pass
+
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -107,8 +126,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             continue
         
         current_mesh = io.read_triangle_mesh(file)
-
-        shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices)}
+        aabb_size = verify_scaling(current_mesh)
+        shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
+                                "aabb_size": aabb_size}
 
         files_information.append(shape_information)
 
@@ -121,6 +141,8 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
+if __name__=='__main__':
+
+    mesh = io.read_triangle_mesh("output/scale/m398.off")
 
 #TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
-#TODO COLLECT HISTOGRAM OF BOUNDING BOX MAX SIZES
