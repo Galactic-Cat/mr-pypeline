@@ -150,7 +150,7 @@ def visualize_histogram(hist:np.array, title: str, output_path: str) -> None:
 
     fig = plt.hist(hist)
     plt.title(title)
-    plt.savefig(output_path + title +'.png')
+    plt.savefig(output_path)
 
     return
 
@@ -201,19 +201,14 @@ if __name__ == '__main__':
     mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
     A3 = angle_between_randoms(mesh)
     norm_A3 = normalize_features(A3)
-    hist_A3 = visualize_histogram(normalize_features(norm_A3), "3_random_angles", "./output/hist/")
+    hist_A3 = visualize_histogram(normalize_features(norm_A3), "Angles between 3 random vertices", "./output/hist/3_random_angles.png")
     D1 = distance_barycenter_to_random(mesh)
     norm_D1 = normalize_features(D1)
-    hist_D1 = visualize_histogram(norm_D1, "barycenter_to_random", "./output/hist/")
+    hist_D1 = visualize_histogram(norm_D1, "Distances between barycenter to random vertex", "./output/hist/barycenter_to_random.png")
     D2 = distance_random_to_random(mesh)
     norm_D2 = normalize_features(D2)
-    hist_D2 = visualize_histogram(norm_D2, "random_to_random", "./output/hist/")
+    hist_D2 = visualize_histogram(norm_D2, "Distances between two random vertices", "./output/hist/random_to_random.png")
 
     # #TODO: Implement D3 and D4
 
     simple_features(mesh)
-
-    #lister = distance_barycenter_to_random(mesh, 10)
-    #print(lister)
-
-    #convert_entries_into_hist([0,.1,.2,.3,.4,.5,.6,.7,.8,.9], 10)
