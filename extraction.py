@@ -4,7 +4,7 @@ from math import floor, pi, sqrt
 from typing import List
 
 import numpy as np
-from open3d import geometry, io
+from open3d import geometry, io, utility
 
 import matplotlib.pyplot as plt
 
@@ -109,7 +109,7 @@ def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE
         List[float]: The distance between 2 random vertices
     '''
     vertices = np.asarray(mesh.vertices)
-    vertex_count = vertices.shape[0] - (vertices.shape[0] % 2)
+    #vertex_count = vertices.shape[0] - (vertices.shape[0] % 2)
     entries = []
 
     for point in range(samples):
@@ -150,9 +150,102 @@ def visualize_histogram(hist:np.array, title: str, output_path: str) -> None:
 
     fig = plt.hist(hist)
     plt.title(title)
+    plt.ylabel("Frequency")
+    #plt.xlabel(x_label)
     plt.savefig(output_path)
+    plt.close()
 
     return
+
+def volume_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE):
+    
+    vertices = np.asarray(mesh.vertices)
+    sample_count = int((samples)**(1.0/3.0))
+
+    entries = []
+
+    for i in range(0, sample_count):
+        i_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+        v_i = vertices[i_index, :][0]
+
+        for j in range(0, sample_count):
+            j_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+            v_j = vertices[j_index, :][0]
+            if j_index == i_index:
+                continue
+
+            for k in range(0,sample_count):
+                k_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+                v_k = vertices[k_index, :][0]
+                if k_index == i_index or k_index == j_index:
+                    continue
+                
+                for l in range (0, sample_count):
+                    l_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+                    v_l = vertices[l_index, :][0]
+                    if l_index == i_index or l_index == j_index or l_index == k_index:
+                        continue
+                    
+                    tetra_vertices = utility.Vector3dVector(np.asarray([v_i,v_j,v_k,v_l]))
+
+                    tetra_faces = utility.Vector3iVector(np.asarray([[0,3,1], [2,3,0], [3,2,1], [1,2,0]]))
+
+                    # Avoid doing calcs by hand :)
+                    tetrahedron = geometry.TriangleMesh(tetra_vertices, tetra_faces)
+
+                    volume = tetrahedron.get_volume()
+
+                    entries.append(volume)
+
+    return entries
+
+def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
+    """Calculates area of a triangle made from 3 random vertices.
+    
+    Args:
+        mesh (geometry.TriangleMesh): The mesh from which we select the vertices
+        samples (int): Number of samples to evaluate the area for.
+    
+    Returns:
+        List[float]: The area created by a triangle of three random vertices.
+    """
+
+    vertices = np.asarray(mesh.vertices)
+    sample_count = int((samples*100)**(1.0/3.0))
+
+    entries = []
+
+    for i in range(0, sample_count):
+        i_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+        v_i = vertices[i_index, :][0]
+
+        for j in range(0, sample_count):
+            j_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+            v_j = vertices[j_index, :][0]
+            if j_index == i_index:
+                continue
+
+            for k in range(0,sample_count):
+                k_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+                v_k = vertices[k_index, :][0]
+                if k_index == i_index or k_index == j_index:
+                    continue
+                
+                # find vectors i_j, i_k
+                i_j = [v_i[0] - v_j[0], v_i[1] - v_j[1], v_i[2] - v_j[2]]
+                i_k = [v_i[0] - v_k[0], v_i[1] - v_k[1], v_i[2] - v_k[2]]
+
+                # get their cross product
+                vectors = np.cross(i_j,i_k)
+
+                # calculate the magnitude of cross product
+                magnitude = abs(np.sqrt(vectors.dot(vectors)))
+
+                area = magnitude/2
+
+                entries.append(area)
+
+    return entries
 
 def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     '''Extract some simple features from a 3D mesh
@@ -199,16 +292,24 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
 if __name__ == '__main__':
     mesh = io.read_triangle_mesh('./output/preprocess/m100.off')
     mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
+
     A3 = angle_between_randoms(mesh)
     norm_A3 = normalize_features(A3)
-    hist_A3 = visualize_histogram(normalize_features(norm_A3), "Angles between 3 random vertices", "./output/hist/3_random_angles.png")
+    hist_A3 = visualize_histogram(np.asarray(norm_A3), "Angles between 3 random vertices", "./output/hist/3_random_angles.png")
+    
     D1 = distance_barycenter_to_random(mesh)
     norm_D1 = normalize_features(D1)
-    hist_D1 = visualize_histogram(norm_D1, "Distances between barycenter to random vertex", "./output/hist/barycenter_to_random.png")
+    hist_D1 = visualize_histogram(np.asarray(norm_D1), "Distances between barycenter to random vertex", "./output/hist/barycenter_to_random.png")
+    
     D2 = distance_random_to_random(mesh)
     norm_D2 = normalize_features(D2)
-    hist_D2 = visualize_histogram(norm_D2, "Distances between two random vertices", "./output/hist/random_to_random.png")
+    hist_D2 = visualize_histogram(np.asarray(norm_D2), "Distances between two random vertices", "./output/hist/random_to_random.png")
 
-    # #TODO: Implement D3 and D4
-
-    simple_features(mesh)
+    D3 = volume_of_random_vertices(mesh)
+    norm_D3 = normalize_features(D3)
+    hist_D3 = visualize_histogram(norm_D3, "Area of triangle from 3 random points", "./output/hist/area_3_random_vertices.png")
+    
+    D4 = volume_of_random_vertices(mesh)
+    norm_D4 = normalize_features(D4)
+    hist_D4 = visualize_histogram(norm_D4, "Volume of tetahedron from 4 random points", "./output/hist/tetrahedron_area.png")
+    # simple_features(mesh)
