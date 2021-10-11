@@ -141,8 +141,4 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
-if __name__=='__main__':
-
-    mesh = io.read_triangle_mesh("output/scale/m398.off")
-
 #TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
