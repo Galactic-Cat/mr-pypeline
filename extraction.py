@@ -289,27 +289,28 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     
     return values
 
-if __name__ == '__main__':
-    mesh = io.read_triangle_mesh('./output/preprocess/m100.off')
-    mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
+# Leaving for debug purposes
+#if __name__ == '__main__':
+#     mesh = io.read_triangle_mesh('./output/preprocess/m100.off')
+#     mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
 
-    A3 = angle_between_randoms(mesh)
-    norm_A3 = normalize_features(A3)
-    hist_A3 = visualize_histogram(np.asarray(norm_A3), "Angles between 3 random vertices", "./output/hist/3_random_angles.png")
+#     A3 = angle_between_randoms(mesh)
+#     norm_A3 = normalize_features(A3)
+#     hist_A3 = visualize_histogram(np.asarray(norm_A3), "Angles between 3 random vertices", "./output/hist/3_random_angles.png")
     
-    D1 = distance_barycenter_to_random(mesh)
-    norm_D1 = normalize_features(D1)
-    hist_D1 = visualize_histogram(np.asarray(norm_D1), "Distances between barycenter to random vertex", "./output/hist/barycenter_to_random.png")
+#     D1 = distance_barycenter_to_random(mesh)
+#     norm_D1 = normalize_features(D1)
+#     hist_D1 = visualize_histogram(np.asarray(norm_D1), "Distances between barycenter to random vertex", "./output/hist/barycenter_to_random.png")
     
-    D2 = distance_random_to_random(mesh)
-    norm_D2 = normalize_features(D2)
-    hist_D2 = visualize_histogram(np.asarray(norm_D2), "Distances between two random vertices", "./output/hist/random_to_random.png")
+#     D2 = distance_random_to_random(mesh)
+#     norm_D2 = normalize_features(D2)
+#     hist_D2 = visualize_histogram(np.asarray(norm_D2), "Distances between two random vertices", "./output/hist/random_to_random.png")
 
-    D3 = volume_of_random_vertices(mesh)
-    norm_D3 = normalize_features(D3)
-    hist_D3 = visualize_histogram(norm_D3, "Area of triangle from 3 random points", "./output/hist/area_3_random_vertices.png")
+#     D3 = volume_of_random_vertices(mesh)
+#     norm_D3 = normalize_features(D3)
+#     hist_D3 = visualize_histogram(norm_D3, "Area of triangle from 3 random points", "./output/hist/area_3_random_vertices.png")
     
-    D4 = volume_of_random_vertices(mesh)
-    norm_D4 = normalize_features(D4)
-    hist_D4 = visualize_histogram(norm_D4, "Volume of tetahedron from 4 random points", "./output/hist/tetrahedron_area.png")
-    # simple_features(mesh)
+#     D4 = volume_of_random_vertices(mesh)
+#     norm_D4 = normalize_features(D4)
+#     hist_D4 = visualize_histogram(norm_D4, "Volume of tetahedron from 4 random points", "./output/hist/tetrahedron_area.png")
+#     # simple_features(mesh)
