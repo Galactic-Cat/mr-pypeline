@@ -59,6 +59,10 @@ def acceptable_size(face_count: int) -> bool:
 
     return False
 
+def extract_features(mesh: geometry.TriangleMesh) -> list():
+    log.error("Feature extraction during pre-processing has not been implemented.")
+    return []
+
 def preprocess(input_path: str, output_path: str, classification_path: str) -> None:
     '''Function that preprocesses files from input to output
 
@@ -154,6 +158,10 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
+
+        # Step 5: Extract Features and save them inside the database.
+
+        features = extract_features(current_mesh)
 
         # DATA ENTRY :Face and Vertex Count 
         face_count = len(current_mesh.triangles)

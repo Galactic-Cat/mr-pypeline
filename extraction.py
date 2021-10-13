@@ -37,8 +37,6 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
     #     entries.append(np.degrees(np.arccos(cos_angle)))# / 360)
 
     for point in range(samples):
-        print(vertices.shape[0])
-        print(vertices)
         random_indeces = np.random.choice(vertices.shape[0], size=3, replace= False)
         random_vertices = vertices[random_indeces, :]
 
@@ -196,8 +194,8 @@ def volume_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE
                     tetrahedron = geometry.TriangleMesh(tetra_vertices, tetra_faces)
 
                     volume = tetrahedron.get_volume()
-
-                    entries.append(volume)
+                    cr_volume = volume **(1./3)
+                    entries.append(cr_volume)
 
     return entries
 
@@ -241,11 +239,11 @@ def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_S
                 vectors = np.cross(i_j,i_k)
 
                 # calculate the magnitude of cross product
-                magnitude = abs(np.sqrt(vectors.dot(vectors)))
+                area = abs(np.sqrt(vectors.dot(vectors)))/2
 
-                area = magnitude/2
+                sqrt_area = sqrt(area)
 
-                entries.append(area)
+                entries.append(sqrt_area)
 
     return entries
 

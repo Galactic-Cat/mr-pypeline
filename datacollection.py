@@ -4,6 +4,7 @@ from os import listdir
 from os.path import exists, isfile, isdir
 from open3d import io, geometry
 from preprocess import find_aabb_points
+from util import compute_pca
 from math import sqrt
 import numpy as np
 import pandas as pd
@@ -75,14 +76,13 @@ def calculate_features(output_path: str) -> None:
 
     return
 
-def verify_scaling(current_mesh: geometry.TriangleMesh):
+def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
 
     min, max = find_aabb_points(current_mesh)
-    print (np.max(np.abs(max) + np.abs(min)))
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
-def verify_rotation():
-    #check that the pca is orthogonal, if it is then we can simply say it worked.
+def verify_rotation(current_mesh: geometry.TriangleMesh):
+    x, y, z , _ = compute_pca(current_mesh)
     pass
 
 
