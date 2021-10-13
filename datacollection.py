@@ -5,16 +5,16 @@ from os.path import exists, isfile, isdir
 from open3d import io, geometry
 from preprocess import find_aabb_points
 from util import compute_pca
-from math import sqrt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 
 log = getLogger('data_collection')
 
 dataframe = None
 
-def visualize_data(output_path: str) -> None:
+def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
     ''' Function that will visualize the collected data given a .csv file
 
     Args:
@@ -26,26 +26,15 @@ def visualize_data(output_path: str) -> None:
         log.error('Dataframe has not been instantiated.')
         return
     
-    ax = dataframe.hist(column = 'face_count',xrot = 90, legend = True, bins= 15)
-    axes = ax[0][0]
-    axes.set_title("Face count")
-    axes.legend(['Number of faces'])
-    fig = axes.get_figure()
-    fig.savefig(output_path + "/face_count"+ '_hist.png')
-
-    ax = dataframe.hist(column = 'vertex_count',xrot = 90, legend = True, bins= 15)
-    axes = ax[0][0]
-    axes.set_title("Vertex count")
-    axes.legend(['Number of vertices'])
-    fig = axes.get_figure()
-    fig.savefig(output_path + "/vertex_count" + '_hist.png')
-
-    ax = dataframe.hist(column = 'aabb_size',xrot = 90, legend = True, bins= 15)
-    axes = ax[0][0]
-    axes.set_title("AABB Maximum length")
-    axes.legend(['Length'])
-    fig = axes.get_figure()
-    fig.savefig(output_path + "/aabb_size" + '_hist.png')
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    n, bins, patches = ax.hist(data, bins = bins_, weights=np.zeros_like(data) + 100. / data.size)
+    ax.set_xlabel(xlabel, size=15)
+    ax.set_ylabel(ylabel, size=15)
+    ax.set_title(title)
+    ax.legend
+    plt.savefig(output_path + "/"+ feature_name + '_hist.png')
+    plt.close()
 
     return
 
@@ -82,8 +71,8 @@ def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: geometry.TriangleMesh):
-    x, y, z , _ = compute_pca(current_mesh)
-    pass
+    x, _, _, _ = compute_pca(current_mesh)
+    return abs(x[0])
 
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
@@ -127,16 +116,20 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         
         current_mesh = io.read_triangle_mesh(file)
         aabb_size = verify_scaling(current_mesh)
+        x_coordinate = verify_rotation(current_mesh)
         shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
-                                "aabb_size": aabb_size}
+                                "aabb_size": aabb_size, "x_coord": x_coordinate}
 
         files_information.append(shape_information)
 
     global dataframe 
     
     dataframe = pd.DataFrame.from_dict(files_information)
-
-    visualize_data(output_path)
+# (data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15)
+    visualize_data(data = dataframe['face_count'].to_numpy(), title = 'Distribution of Face counts', feature_name = 'face_count', output_path = output_path, xlabel = 'Face Count')
+    visualize_data(data = dataframe['vertex_count'].to_numpy(), title = 'Distribution of Vertex counts' , feature_name =  'vertex_count', output_path = output_path, xlabel = 'Vertex Count')
+    visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
+    visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
     calculate_features(output_path)
 
     return
