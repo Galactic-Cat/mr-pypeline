@@ -282,11 +282,14 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
     x_axis, y_axis, z_axis, _ = compute_pca(mesh)
-
     centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 
     vertices = []
+    # R = np.stack([x_axis, y_axis ,z_axis])
+    # # print(R.shape)
+    # mesh = mesh.rotate(R,center = centroid)
 
+    # return mesh
     for vertex in np.asarray(mesh.vertices):
 
         coords =  vertex - centroid

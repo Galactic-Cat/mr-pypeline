@@ -45,7 +45,6 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
 
         cos_angle = np.dot(vector_b_to_a, vector_b_to_c) / (np.linalg.norm(vector_b_to_a) * np.linalg.norm(vector_b_to_c))
         angle = np.arccos(cos_angle)
-
         # This normalizes the angles to values between 0 - 1, facilitates histogram creation.
         f_angle = np.degrees(angle)/360
 
@@ -120,38 +119,28 @@ def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE
 
     return entries
 
-def convert_entries_into_hist(entries: List[float], bin_count: int) -> np.array:
-    '''Creates a histogram for a set of points.
+def create_histogram(data: List[float], bin_count: int = 20, normalized: bool = True):
     
-    Args:
-        entries(List[float]): List of the points to convert to a distribution.
-    
-    Returns:
-        np.array: A numpy array representing the generated histogram
-    '''
-    step_size = 1.0 / bin_count
-    histogram = np.zeros(bin_count, int)
+    counts, bins = np.histogram(data, bins = bin_count)
+    if normalized:
+        counts = normalize_histogram(counts)
 
-    for entry in entries:
-        index = floor(entry / step_size) # NOTE: 0.1 in python is slightly bigger than 0.1, (such that 1 // 0.1 = 9)
-        histogram[index] += 1
+    return counts, bins
 
-    return histogram
 
-def normalize_features(entries: List[float]) -> List[float]:
+def normalize_histogram(entries: List[float]) -> List[float]:
 
     total = sum(entries)
-
     entries = [entry/total for entry in entries]
 
     return entries
 
-def visualize_histogram(hist:np.array, title: str, output_path: str) -> None:
+def visualize_histogram(counts: np.array, bins: np.array, title: str, output_path: str) -> None:
 
-    fig = plt.hist(hist)
+    fig = plt.hist(bins[:-1], bins, weights=counts)
     plt.title(title)
     plt.ylabel("Frequency")
-    #plt.xlabel(x_label)
+    plt.xlabel("Range")
     plt.savefig(output_path)
     plt.close()
 
@@ -290,27 +279,26 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     return values
 
 # Leaving for debug purposes
-# if __name__ == '__main__':
-#     mesh = io.read_triangle_mesh('./output/preprocess/m393.off')
-#     #mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
+if __name__ == '__main__':
+    mesh = io.read_triangle_mesh('./output/preprocess/m100.off')
+    #mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
 
-#     A3 = angle_between_randoms(mesh)
-#     norm_A3 = normalize_features(A3)
-#     hist_A3 = visualize_histogram(np.asarray(norm_A3), "Angles between 3 random vertices", "./output/hist_test/3_random_angles.png")
-    
-#     D1 = distance_barycenter_to_random(mesh)
-#     norm_D1 = normalize_features(D1)
-#     hist_D1 = visualize_histogram(np.asarray(norm_D1), "Distances between barycenter to random vertex", "./output/hist_test/barycenter_to_random.png")
-    
-#     D2 = distance_random_to_random(mesh)
-#     norm_D2 = normalize_features(D2)
-#     hist_D2 = visualize_histogram(np.asarray(norm_D2), "Distances between two random vertices", "./output/hist_test/random_to_random.png")
+    A3 = angle_between_randoms(mesh)
+    A3_counts, A3_bins = create_histogram(data = A3, bin_count = 20)
+    visualize_histogram(A3_counts, A3_bins, "Angles between 3 random vertices", "./output/hist_test/3_random_angles.png")
 
-#     D3 = volume_of_random_vertices(mesh)
-#     norm_D3 = normalize_features(D3)
-#     hist_D3 = visualize_histogram(norm_D3, "Area of triangle from 3 random points", "./output/hist_test/area_3_random_vertices.png")
+    D1 = distance_barycenter_to_random(mesh)
+    D1_counts, D1_bins = create_histogram(data = D1, bin_count = 20)
+    visualize_histogram(D1_counts, D1_bins,  "Distances between barycenter to random vertex", "./output/hist_test/barycenter_to_random.png")
     
-#     D4 = volume_of_random_vertices(mesh)
-#     norm_D4 = normalize_features(D4)
-#     hist_D4 = visualize_histogram(norm_D4, "Volume of tetahedron from 4 random points", "./output/hist_test/tetrahedron_area.png")
-#     # simple_features(mesh)
+    D2 = distance_random_to_random(mesh)
+    D2_counts, D2_bins = create_histogram(data = D2, bin_count = 20)
+    visualize_histogram(D2_counts, D2_bins, "Distances between two random vertices", "./output/hist_test/random_to_random.png")
+
+    D3 = area_of_random_vertices(mesh)
+    D3_counts, D3_bins = create_histogram(data = D3, bin_count = 20)
+    visualize_histogram(D3_counts, D3_bins, "Area of triangle from 3 random points", "./output/hist_test/area_3_random_vertices.png")
+    
+    D4 = volume_of_random_vertices(mesh)
+    D4_counts, D4_bins = create_histogram(data = D4, bin_count = 20)
+    visualize_histogram(D4_counts, D4_bins, "Volume of tetahedron from 4 random points", "./output/hist_test/tetrahedron_area.png")
