@@ -245,21 +245,21 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     Returns:
         List[float]: A list of features, in order: surface area, compactness, AABB volume, diameter, and eccentricity
     '''
-    values = []
+    values = {}
 
     # Get the surface area
     surface_area = mesh.get_surface_area()
-    values.append(surface_area)
+    values['surface_area'] = surface_area
     
     # Get compactness
     if mesh.is_watertight():
-        values.append((surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2)))
+        values['compactness'] = (surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2))
     else:
-        values.append(None)
+        values['compactness'] = None
         log.error("Cannot find compactness of a non-watertight mesh")
     
     # Get AABB volume
-    values.append(mesh.get_axis_aligned_bounding_box().volume())
+    values['aabb_volume'] = mesh.get_axis_aligned_bounding_box().volume()
 
     # Get diameter
     # This is using a bruteforce method, but relying mostly on numpy's C code, so it takes ~0.5 seconds for 2000 vertices
@@ -270,13 +270,51 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     for i in range(vertex_count):
         squared_distances[i,:] = np.sum(np.square(vertices[i,:] - vertices), axis=1)
 
-    values.append(np.sqrt(np.max(squared_distances)))
+    values['diameter'] = np.sqrt(np.max(squared_distances))
     
     # Get eccentricity
     _, _, _, eigenvalues = compute_pca(mesh)
-    values.append(abs(max(eigenvalues)) / abs(min(eigenvalues)))
+    values['eccentricity'] = abs(max(eigenvalues)) / abs(min(eigenvalues))
     
     return values
+
+def distribution_features(mesh: geometry.TriangleMesh) -> List[np.array]:
+
+    dist = {}
+
+    A3 = angle_between_randoms(mesh)
+    A3_counts, _ = create_histogram(data = A3, bin_count = 20)
+    dist['A3'] = A3_counts
+
+    D1 = distance_barycenter_to_random(mesh)
+    D1_counts, _ = create_histogram(data = D1, bin_count = 20)
+    dist['D1'] = D1_counts
+
+    D2 = distance_random_to_random(mesh)
+    D2_counts, _ = create_histogram(data = D2, bin_count = 20)
+    dist['D2'] = D2_counts
+
+    D3 = area_of_random_vertices(mesh)
+    D3_counts, _ = create_histogram(data = D3, bin_count = 20)
+    dist['D3'] = D3_counts
+
+    D4 = volume_of_random_vertices(mesh)
+    D4_counts, _ = create_histogram(data = D4, bin_count = 20)
+    dist['D4'] = D4_counts
+
+    return dist
+
+def extract_all_features(mesh: geometry.TriangleMesh):
+    #Order: Surface area, compactness, AABB volume, diameter, eccentricity.
+    features = simple_features(mesh)
+
+    #Order: A3,D1,D2,D3,D4
+    distributions = distribution_features(mesh)
+
+    features.update(distributions)
+
+    return features
+
 
 # Leaving for debug purposes
 if __name__ == '__main__':

@@ -1,15 +1,16 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
-from os import getcwd, listdir, mkdir
+from os import listdir, mkdir
 from os.path import basename, exists, isfile, isdir
-from re import match, search, split
+from re import search, split
 from typing import Dict
+from open3d import geometry, io, utility
+from extraction import extract_all_features, simple_features
+from util import compute_pca, locate_mesh_files
 
 import numpy as np
-from open3d import geometry, io, utility
 import pandas as pd
 
-from util import compute_pca
 
 log = getLogger('preprocess')
 SIZE_PARAM = 3500 # Check which value we want to use.
@@ -59,10 +60,6 @@ def acceptable_size(face_count: int) -> bool:
 
     return False
 
-def extract_features(mesh: geometry.TriangleMesh) -> list():
-    log.error("Feature extraction during pre-processing has not been implemented.")
-    return []
-
 def preprocess(input_path: str, output_path: str, classification_path: str) -> None:
     '''Function that preprocesses files from input to output
 
@@ -89,24 +86,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
     if classification_path is not None and not exists(classification_path):
         log.warning('The provided path to the classification file "%s" is not valid', classification_path)
         classification_path = None
-
-    # Setup input search
-    folders = []
-    files = []
     
-    files.append(input_path) if isfile(input_path) else folders.append(input_path)
-
-    # DFS the filesystem for .off and .ply files
-    while len(folders) > 0:
-        current_folder = folders.pop()
-
-        for item in listdir(current_folder):
-            item_path = current_folder + '/' + item
-
-            if isdir(item_path):
-                folders.append(item_path)
-            elif isfile(item_path) and item_path[-4:] in ['.ply', '.off']:
-                files.append(item_path)
+    files = locate_mesh_files(input_path)
     
     log.debug('Found %d files to preprocess', len(files))
 
@@ -161,7 +142,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
         # Step 5: Extract Features and save them inside the database.
 
-        features = extract_features(current_mesh)
+        features = extract_all_features(current_mesh)
 
         # DATA ENTRY :Face and Vertex Count 
         face_count = len(current_mesh.triangles)
@@ -176,9 +157,10 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         if not entry:
             log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
             continue
+        
+        entry.update(features)
 
         preprocessed_files.append(entry)
-
 
     # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)

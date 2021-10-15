@@ -1,8 +1,33 @@
 '''Utility functions'''
 from typing import Iterable, Tuple
+from os import listdir
+from os.path import isfile, isdir
+from open3d import geometry
 
 import numpy as np
-from open3d import geometry
+
+
+def locate_mesh_files(input_path: str):
+
+    # Setup input search
+    folders = []
+    files = []
+    
+    files.append(input_path) if isfile(input_path) else folders.append(input_path)
+
+    # DFS the filesystem for .off and .ply files
+    while len(folders) > 0:
+        current_folder = folders.pop()
+
+        for item in listdir(current_folder):
+            item_path = current_folder + '/' + item
+
+            if isdir(item_path):
+                folders.append(item_path)
+            elif isfile(item_path) and item_path[-4:] in ['.ply', '.off']:
+                files.append(item_path)
+    
+    return files
 
 def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
     eigen_values = np.abs(eigen_values)
