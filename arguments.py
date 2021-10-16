@@ -36,6 +36,9 @@ def setup_logger(stream_level: str) -> None:
     mpl = getLogger('matplotlib')
     mpl.setLevel(30)
 
+    # Test message
+    getLogger('logging').debug('Setup logger at level %s (stream)', stream_level)
+
 def parse_arguments() -> Namespace:
     '''Creates an argument parser and parses the arguments
     Returns:
@@ -43,7 +46,7 @@ def parse_arguments() -> Namespace:
     '''
     # Create the argument parser
     parser = ArgumentParser(formatter_class=lambda prog: HelpFormatter(prog, max_help_position=65))
-
+    
     parser.add_argument('--debug', '-d', metavar='CHOICE', nargs='?', choices=[
         'debug',
         'info',
@@ -51,6 +54,22 @@ def parse_arguments() -> Namespace:
         'error',
         'critical'
     ], default='info', const='debug', help='The verbosity of the program in the console.')
+
+    subparsers = parser.add_subparsers(dest='mode', required=False)
+
+    # Add view parser
+    subparsers.add_parser('view')
+
+    # Add preprocessing parser
+    preprocess = subparsers.add_parser('preprocess')
+    preprocess.add_argument('input', type=str, nargs=1)
+    preprocess.add_argument('output', type=str, nargs=1)
+    preprocess.add_argument('-c', '--classification', type=str, nargs=1, default=[None])
+
+    # Add collection parser
+    collection = subparsers.add_parser('collect')
+    collection.add_argument('input', type=str, nargs=1)
+    collection.add_argument('output', type=str, nargs=1)
 
     # Parse the arguments
     return parser.parse_args()

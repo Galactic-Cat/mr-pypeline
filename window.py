@@ -1,17 +1,27 @@
 '''Main Window class'''
 
 from logging import getLogger
-from os.path import exists
+from os import getcwd, listdir
+from os.path import exists, isdir, isfile, join, basename
+from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
 
+
 class MainWindow():
     '''Class for drawing the main window'''
+    
+    # Menu statics
     ACTION_LOAD_MESH = 1
     ACTION_CLEAR_MESH = 2
+    READ_DATA_BASE = 3
+
+    # Database paths
+    PRINCETON_PATH = "\\princeton" + "\\db" 
+
     log = getLogger('MainWindow')
-    
+
     def __init__(self, width:int, height:int):
         '''Initializes a MainWindow instance with a predefined height and width
         
@@ -22,19 +32,17 @@ class MainWindow():
         
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         
-        #self.window
         self.create_menu_bar()
         self.create_3D_scene()
-        
-        #self.window.add_child(self._scene_3d)
-        #self.window.add_child(self._options_panel)
 
+        
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
             action_menu = gui.Menu()
             action_menu.add_item("Load Mesh", MainWindow.ACTION_LOAD_MESH)
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
-        
+
+
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
 
@@ -46,55 +54,64 @@ class MainWindow():
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
 
-    def load(self, filepath) -> None:
-
-        if not exists(filepath):
-            self.log.error('Try to load file at path %s which does not exist')
+    def load(self, path: str, use_wireframe: bool = True) -> None:
+        '''Loads the file into a shape to render the mesh into the scene.
+        
+        Args:
+            path (str): Path from which to load the mesh file.
+        '''
+        if not exists(path):
+            self.log.error('Try to load file at path %s which does not exist', path)
             return 
         
-        self._scene_3d.scene.clear_geometry()
-
-        #open3d.io.read_file_geometry_type maybe use this to figure out which one we have to use
-        #if geometry type &  io.CONTAINS_TRIANGLES: else log trying to load an unsupported file.
-        mesh = io.read_triangle_mesh(filepath)
+        # Load and prepare the mesh and material
+        mesh_material = rendering.Material()
+        mesh_material.base_color = [1,0,0.5,1]
+        mesh_material.shader = 'defaultLit'
+        mesh = io.read_triangle_mesh(path)
+        
         mesh.compute_vertex_normals()
 
-        #Define Mesh Material
-        material = rendering.Material()
-        material.base_color = [1,0,0.5,1]
-        material.shader = 'defaultLit'
-
-        #Add model to the scene
-        self._scene_3d.scene.add_geometry('main_geometry', mesh, material)
-
+        # Create the Wireframe, if necessary
+        if use_wireframe:
+            wireframe = geometry.LineSet.create_from_triangle_mesh(mesh)
+            wireframe_material = rendering.Material()
+            wireframe_material.base_color = [1,1,1,1]
+            wireframe_material.shader = 'defaultLit'
+        
+        #Add models to the scene
+        self._scene_3d.scene.clear_geometry()
+        self._scene_3d.scene.add_geometry('main_geometry', mesh, mesh_material)
+        
+        if use_wireframe:
+            self._scene_3d.scene.add_geometry('wireframe', wireframe, wireframe_material)
 
     def on_load_mesh(self) -> None:
-
         '''Attempts to load a file from a path into the viewport
+
         Args:
             filepath (str): The file path
-        Returns:
-            bool: Whether the loading succeeded
         '''
-
         load_dlg = gui.FileDialog(gui.FileDialog.OPEN, "Choose a mesh to load",
                             self.window.theme)
+        
         load_dlg.add_filter(".ply .off", "Mesh files (.ply .off)")
         load_dlg.add_filter(".off", "Object File Format (.off)")
         load_dlg.add_filter(".ply", "Polygon Files (.ply)")
 
-        load_dlg.set_on_cancel(self._on_load_dialog_cancel)
+        load_dlg.set_on_cancel(self.window.close_dialog)
         load_dlg.set_on_done(self._on_load_dialog_done)
 
         self.window.show_dialog(load_dlg)
 
-    def _on_load_dialog_done(self, filename):
-        self.window.close_dialog()
-        self.load(filename)
+    def _on_load_dialog_done(self, path: str) -> None:
+        '''Closes the file loading dialog and loads the mesh
 
-
-    def _on_load_dialog_cancel(self):
+        Args:
+            path (str): The selected path
+        '''                
         self.window.close_dialog()
+        self.load(path)
 
     def on_clear_scene(self):
         font_size = self.window.theme.font_size
@@ -145,8 +162,8 @@ class MainWindow():
         self._scene_3d.scene.scene.enable_sun_light(True)
 
         #Set up bounding box and camera
-        bbox = geometry.AxisAlignedBoundingBox([-15, -15, -15],
-                                                   [15, 15, 15])
+        bbox = geometry.AxisAlignedBoundingBox([-5, -5, -5],
+                                                   [5, 5, 5])
         self._scene_3d.setup_camera(60, bbox, [0, 0, 0])
         self._scene_3d.scene.show_axes(True)
         self.window.add_child(self._scene_3d)

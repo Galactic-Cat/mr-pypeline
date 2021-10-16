@@ -128,4 +128,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Visual Studio Code
 .vscode/
+
+# Test files
+*.test.*
+
+# Custom Files
+princeton/
+data_out/
+data/
+output/
+latex_images/
