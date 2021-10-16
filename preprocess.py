@@ -162,7 +162,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)
-    dataframe.to_csv('database.csv', sep = ',', index=False)
+    dataframe.to_csv(output_path + '/database.csv', sep=',', index=False)
+    log.info('File data saved to "%s"', output_path + '/database.csv')
 
 def get_labels(path: str) -> Dict[str, str]:
     '''Retrieves the labels from a relevant cla file
