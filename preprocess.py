@@ -1,4 +1,5 @@
 '''Module for preprocessing the off and ply files'''
+from copy import deepcopy
 from logging import getLogger
 from os import mkdir
 from os.path import basename, exists, isfile
@@ -8,7 +9,8 @@ from typing import Dict
 import numpy as np
 from open3d import geometry, io, utility
 import pandas as pd
-from pymeshfix import MeshFix
+from pymeshfix import PyTMesh
+from pymeshfix._meshfix import repair
 
 from extraction import extract_all_features
 from util import compute_pca, locate_mesh_files
@@ -134,11 +136,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
-        # Step ?: Repair mesh if not watertight
-        if not current_mesh.is_watertight():
-            log.debug('Attempting to make mesh %s watertight', basename(file))
-            current_mesh = make_watertight(current_mesh)
-
         # Step 5: Extract Features and save them inside the database.
         features = extract_all_features(current_mesh)
 
@@ -212,10 +209,6 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     # Fix and normalize the mesh, and get the features
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
-    
-    if not mesh.is_watertight(): 
-        mesh = make_watertight(mesh)
-
     features = extract_all_features(mesh)
 
     # Create the final entry
@@ -385,19 +378,17 @@ def make_watertight(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The closed mesh
     '''
-    meshfix = MeshFix(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
+    tin = PyTMesh()
     
-    meshfix.repair()
+    tin.load_array(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
+    repair(tin)
 
-    mesh.vertices = utility.Vector3dVector(meshfix.v)
-    mesh.triangles = utility.Vector3iVector(meshfix.f)
-
-    if not mesh.is_watertight():
-        log.error('Failed to make mesh watertight')
+    fixed_vertices, fixed_faces = tin.return_arrays()
+    mesh.vertices = utility.Vector3dVector(fixed_vertices)
+    mesh.triangles = utility.Vector3iVector(fixed_faces)
 
     return mesh
 
-# TODO: Add mesh repair to mesh normalization
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that calls every necessary normalization step.
 
@@ -420,5 +411,15 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     # STEP 4: Scale
     mesh = scale_mesh(mesh)
+
+    # # Step 5: Fix mesh
+    # if not mesh.is_watertight():
+    #     log.debug('Attempting to make mesh watertight')
+    #     original_mesh = deepcopy(mesh)
+    #     mesh = make_watertight(mesh)
+
+    #     if not mesh.is_watertight():
+    #         log.error('Failed to make mesh watertight')
+    #         mesh = original_mesh
 
     return mesh
