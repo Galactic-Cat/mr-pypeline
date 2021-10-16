@@ -1,22 +1,20 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
-from os import listdir, mkdir
-from os.path import basename, exists, isfile, isdir
+from os import mkdir
+from os.path import basename, exists, isfile
 from re import search, split
 from typing import Dict
 from open3d import geometry, io, utility
-from extraction import extract_all_features, simple_features
+from extraction import extract_all_features
 from util import compute_pca, locate_mesh_files
 
 import numpy as np
 import pandas as pd
 
-
 log = getLogger('preprocess')
 SIZE_PARAM = 3500 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
-
 
 def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     current_mesh = current_mesh.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
@@ -24,9 +22,7 @@ def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
 def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     current_mesh = current_mesh.subdivide_midpoint()
-
     face_count = len(current_mesh.triangles)
-
     not_ready = True
 
     while not_ready:
@@ -42,16 +38,13 @@ def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     return current_mesh
 
 def find_aabb_points (current_mesh: geometry.TriangleMesh) -> tuple():
-
     aabb = current_mesh.get_axis_aligned_bounding_box()
-
     aabb_min = aabb.get_min_bound()
     aabb_max = aabb.get_max_bound()
 
     return (aabb_min, aabb_max)
 
 def acceptable_size(face_count: int) -> bool:
-
     if face_count <= SIZE_PARAM and face_count > SIZE_MIN:
         return True
     
@@ -83,7 +76,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         mkdir(output_path)
     
     # Check if the classification_path is valid, if it's provided
-    if classification_path is not None and not exists(classification_path):
+    if classification_path is not None or not exists(classification_path):
         log.warning('The provided path to the classification file "%s" is not valid', classification_path)
         classification_path = None
     
@@ -108,13 +101,12 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         label = None
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
-        log.debug('Face: (%d) and Vertex (%d)', face_count, vertex_count)
 
         # Find category if relevant
         if labels is not None:
             fnm = search(r'\d+', basename(file))
         
-        # DATA ENTRY: Label 
+            # DATA ENTRY: Label 
             if fnm is not None and fnm[0] in labels:
                 label = labels[fnm[0]]
                 log.debug('Labeled mesh %s as %s', basename(file), label)
@@ -124,12 +116,12 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
             if face_count > SIZE_MAX:
                 current_mesh = sub_sample(current_mesh)
+                
                 log.debug("Decimated shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                             file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
-                
-            elif face_count < SIZE_MIN:
-                
+            elif face_count < SIZE_MIN:             
                 current_mesh = super_sample(current_mesh)
+                
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
@@ -141,10 +133,9 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         current_mesh = normalize_mesh(current_mesh)
 
         # Step 5: Extract Features and save them inside the database.
-
         features = extract_all_features(current_mesh)
 
-        # DATA ENTRY :Face and Vertex Count 
+        # DATA ENTRY: Face and Vertex Count 
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
 
@@ -152,8 +143,15 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         current_mesh_path = output_path + '/' + basename(file)
         io.write_triangle_mesh(current_mesh_path, current_mesh)
 
-        entry = {'path': current_mesh_path, 'label': label, 
-                    'face_count': face_count, 'vertex_count': vertex_count} 
+        entry = {
+            'aabb_max': aabb_max,
+            'aabb_min': aabb_min,
+            'label': label,
+            'face_count': face_count,
+            'path': current_mesh_path,
+            'vertex_count': vertex_count
+        } 
+
         if not entry:
             log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
             continue
@@ -164,9 +162,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)
-    dataframe.to_csv(output_path + '/df.csv', sep = ',', index=False)
-
-    return
+    dataframe.to_csv('database.csv', sep = ',', index=False)
 
 def get_labels(path: str) -> Dict[str, str]:
     '''Retrieves the labels from a relevant cla file
@@ -313,7 +309,6 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     scale_factor = 1 / diff[max_dim]
 
     return mesh.scale(scale_factor, mesh_center)
-
 
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that calls every necessary normalization step.
