@@ -4,12 +4,14 @@ from os import mkdir
 from os.path import basename, exists, isfile
 from re import search, split
 from typing import Dict
-from open3d import geometry, io, utility
-from extraction import extract_all_features
-from util import compute_pca, locate_mesh_files
 
 import numpy as np
+from open3d import geometry, io, utility
 import pandas as pd
+from pymeshfix import MeshFix
+
+from extraction import extract_all_features
+from util import compute_pca, locate_mesh_files
 
 log = getLogger('preprocess')
 SIZE_PARAM = 3500 # Check which value we want to use.
@@ -132,6 +134,11 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
+        # Step ?: Repair mesh if not watertight
+        if not current_mesh.is_watertight():
+            log.debug('Attempting to make mesh %s watertight', basename(file))
+            current_mesh = make_watertight(current_mesh)
+
         # Step 5: Extract Features and save them inside the database.
         features = extract_all_features(current_mesh)
 
@@ -175,7 +182,8 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     Returns:
         Dict[str, str]: A map from feature and datapoint names to their values
     '''
-    if not exists(file_path) or not isfile(file_path):
+    # Load in the mesh
+    if not isfile(file_path):
         log.critical('Input path "%s" not valid', file_path)
         return None
 
@@ -185,12 +193,15 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
         log.critical('Failed to read triangle mesh from file "%s"', file_path)
         return None
 
+    # Create a dictionary to store features
     entry = {'path': file_path}
     labels = None
 
+    # Retrieve labels if available
     if classification_path is not None and isfile(classification_path):
         labels = get_labels(classification_path)
 
+    # Assign label if possible
     if labels is not None:
         fnm = search(r'\d+', basename(file_path))
 
@@ -198,10 +209,16 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
             entry['label'] = labels[fnm[0]]
             log.debug('Labeled mesh %s as %s', basename(file_path), entry['label'])
     
+    # Fix and normalize the mesh, and get the features
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
+    
+    if not mesh.is_watertight(): 
+        mesh = make_watertight(mesh)
+
     features = extract_all_features(mesh)
 
+    # Create the final entry
     entry.update({
         'aabb_max': aabb_max,
         'aabb_min': aabb_min,
@@ -210,6 +227,7 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     })
     entry.update(features)
 
+    # Return the created entry
     return entry
 
 def get_labels(path: str) -> Dict[str, str]:
@@ -357,6 +375,27 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     scale_factor = 1 / diff[max_dim]
 
     return mesh.scale(scale_factor, mesh_center)
+
+def make_watertight(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    '''Attempts to make a mesh watertight
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to make watertight
+
+    Returns:
+        geometry.TriangleMesh: The closed mesh
+    '''
+    meshfix = MeshFix(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
+    
+    meshfix.repair()
+
+    mesh.vertices = utility.Vector3dVector(meshfix.v)
+    mesh.triangles = utility.Vector3iVector(meshfix.f)
+
+    if not mesh.is_watertight():
+        log.error('Failed to make mesh watertight')
+
+    return mesh
 
 # TODO: Add mesh repair to mesh normalization
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
