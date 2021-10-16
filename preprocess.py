@@ -164,7 +164,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)
-    dataframe.to_csv(output_path + '/df.csv')
+    dataframe.to_csv(output_path + '/df.csv', sep = ',', index=False)
 
     return
 
