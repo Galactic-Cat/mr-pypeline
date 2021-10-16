@@ -125,12 +125,12 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
+        # Step 4: Normalize
+        current_mesh = normalize_mesh(current_mesh)
+
         # Step 3: Get aabb points
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
-
-        # Step 4: Normalize
-        current_mesh = normalize_mesh(current_mesh)
 
         # Step 5: Extract Features and save them inside the database.
         features = extract_all_features(current_mesh)
@@ -164,6 +164,53 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
     dataframe = pd.DataFrame(preprocessed_files)
     dataframe.to_csv(output_path + '/database.csv', sep=',', index=False)
     log.info('File data saved to "%s"', output_path + '/database.csv')
+
+def single_preprocess(file_path: str, classification_path: str = None) -> Dict[str, str]:
+    '''Preprocesses a single file and returns the database entry
+
+    Args:
+        file_path (str): The path to the file to preprocess
+        classification_path (str, optional): The file to the classification file. Defaults to None.
+
+    Returns:
+        Dict[str, str]: A map from feature and datapoint names to their values
+    '''
+    if not exists(file_path) or not isfile(file_path):
+        log.critical('Input path "%s" not valid', file_path)
+        return None
+
+    mesh = io.read_triangle_mesh(file_path)
+    
+    if mesh.is_empty():
+        log.critical('Failed to read triangle mesh from file "%s"', file_path)
+        return None
+
+    entry = {'path': file_path}
+    labels = None
+
+    if classification_path is not None and isfile(classification_path):
+        labels = get_labels(classification_path)
+
+    if labels is not None:
+        fnm = search(r'\d+', basename(file_path))
+
+        if fnm is not None and fnm[0] in labels:
+            entry['label'] = labels[fnm[0]]
+            log.debug('Labeled mesh %s as %s', basename(file_path), entry['label'])
+    
+    mesh = normalize_mesh(mesh)
+    aabb_min, aabb_max = find_aabb_points(mesh)
+    features = extract_all_features(mesh)
+
+    entry.update({
+        'aabb_max': aabb_max,
+        'aabb_min': aabb_min,
+        'face_count': len(mesh.triangles),
+        'vertex_count': len(mesh.vertices)
+    })
+    entry.update(features)
+
+    return entry
 
 def get_labels(path: str) -> Dict[str, str]:
     '''Retrieves the labels from a relevant cla file
@@ -311,6 +358,7 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh.scale(scale_factor, mesh_center)
 
+# TODO: Add mesh repair to mesh normalization
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that calls every necessary normalization step.
 
@@ -320,23 +368,18 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The normalized mesh
     '''
-
     mesh_center = mesh.get_center()
 
     # STEP 1: Translate
-
     mesh = mesh.translate(-mesh_center)
 
     # STEP 2: Align
-
     mesh = pose_alignment(mesh)
 
     # STEP 3: Flip test
-
     mesh = flip_test(mesh)
 
     # STEP 4: Scale
-
     mesh = scale_mesh(mesh)
 
     return mesh

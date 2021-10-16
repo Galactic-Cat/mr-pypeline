@@ -1,7 +1,7 @@
 '''Module for extracting features from 3D meshes'''
 from logging import getLogger
 from math import floor, pi, sqrt
-from typing import List
+from typing import Dict, List
 
 import numpy as np
 from open3d import geometry, io, utility
@@ -278,7 +278,7 @@ def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
     
     return values
 
-def distribution_features(mesh: geometry.TriangleMesh) -> List[np.array]:
+def distribution_features(mesh: geometry.TriangleMesh) -> Dict[str, np.array]:
 
     dist = {}
 
@@ -306,7 +306,14 @@ def distribution_features(mesh: geometry.TriangleMesh) -> List[np.array]:
 
 def extract_all_features(mesh: geometry.TriangleMesh):
     #Order: Surface area, compactness, AABB volume, diameter, eccentricity.
-    features = simple_features(mesh)
+    singletons = simple_features(mesh)
+    features = {
+        'aabb_volume': singletons[2],
+        'compactness': singletons[1],
+        'diameter': singletons[3],
+        'eccentricity': singletons[4],
+        'surface_area': singletons[0],
+    }
 
     #Order: A3,D1,D2,D3,D4
     distributions = distribution_features(mesh)
