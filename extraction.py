@@ -1,7 +1,7 @@
 '''Module for extracting features from 3D meshes'''
 from logging import getLogger
 from math import floor, pi, sqrt
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 from open3d import geometry, io, utility
@@ -236,14 +236,14 @@ def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_S
 
     return entries
 
-def simple_features(mesh: geometry.TriangleMesh) -> List[float]:
+def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
     '''Extract some simple features from a 3D mesh
 
     Args:
         mesh (geometry.TriangleMesh): The mesh to extract features from
 
     Returns:
-        List[float]: A list of features, in order: surface area, compactness, AABB volume, diameter, and eccentricity
+        Dict[str, float]: A list of features, in order: surface area, compactness, AABB volume, diameter, and eccentricity
     '''
     values = {}
 
@@ -304,18 +304,19 @@ def distribution_features(mesh: geometry.TriangleMesh) -> Dict[str, np.array]:
 
     return dist
 
-def extract_all_features(mesh: geometry.TriangleMesh):
-    #Order: Surface area, compactness, AABB volume, diameter, eccentricity.
-    singletons = simple_features(mesh)
-    features = {
-        'aabb_volume': singletons[2],
-        'compactness': singletons[1],
-        'diameter': singletons[3],
-        'eccentricity': singletons[4],
-        'surface_area': singletons[0],
-    }
+def extract_all_features(mesh: geometry.TriangleMesh) -> Dict[str, Union[float, np.ndarray]]:
+    '''Extracts simple and shape property features from a mesh
 
-    #Order: A3,D1,D2,D3,D4
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to extract features from
+
+    Returns:
+        Dict[str, Union[float, np.ndarray]]: A dictionary mapping feature names to their values for this mesh
+    '''
+    # Get single features
+    features = simple_features(mesh)
+
+    # Add distributions to features
     distributions = distribution_features(mesh)
 
     features.update(distributions)

@@ -76,7 +76,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         mkdir(output_path)
     
     # Check if the classification_path is valid, if it's provided
-    if classification_path is not None or not exists(classification_path):
+    if classification_path is None or not exists(classification_path):
         log.warning('The provided path to the classification file "%s" is not valid', classification_path)
         classification_path = None
     
