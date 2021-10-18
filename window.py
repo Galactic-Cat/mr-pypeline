@@ -7,7 +7,7 @@ from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
-from search import SearchEngine
+from search import Search
 
 
 class MainWindow():
@@ -30,7 +30,7 @@ class MainWindow():
         '''
         
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
-        self.search_engine = SearchEngine('output\preprocess\database.csv')
+        self.search_engine = Search('output\preprocess\database.csv')
         self.create_menu_bar()
         self.create_3D_scene()
 
