@@ -2,13 +2,15 @@
 
 from logging import getLogger
 from os import getcwd, listdir
-from os.path import exists, isdir, isfile, join, basename
+import os.path
+from posixpath import basename
 from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
 from search import Search
 
+basedir = os.path.dirname(os.path.realpath(__file__))
 
 class MainWindow():
     '''Class for drawing the main window'''
@@ -16,7 +18,7 @@ class MainWindow():
     # Menu statics
     ACTION_LOAD_MESH = 1
     ACTION_CLEAR_MESH = 2
-    SEARCH_MESH = 3
+    MENU_SHOW_COMPARE = 11
 
 
     log = getLogger('MainWindow')
@@ -28,11 +30,86 @@ class MainWindow():
             width (int): The width of the window
             height (int): The height of the window
         '''
-        
+
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         self.search_engine = Search('output\preprocess\database.csv')
-        self.create_menu_bar()
+
         self.create_3D_scene()
+        self.create_search_panel()
+
+        self.window.set_on_layout(self._on_layout)
+
+        self.create_menu_bar()
+
+    def create_img_entry(self, path: str) -> gui.Vert:
+        entry = gui.Vert(0)
+
+        entry.add_child(gui.ImageWidget(path))
+
+        entry_label_layout = gui.Horiz()
+        entry_label_layout.add_stretch()
+        entry_label_layout.add_child(gui.Label(basename(path)))
+        entry_label_layout.add_stretch()
+
+        entry.add_child(entry_label_layout)
+        
+        return entry
+
+    def create_search_panel(self):
+        self.search_results = [] # Define it for later use.
+
+        em = self.window.theme.font_size
+
+        #Create Top level layout
+        self._search_panel = gui.Vert(0, gui.Margins(0.5 * em, 0.5 * em, 0.5 * em,
+                                         0.5 * em))
+
+        #Add "search bar" that opens a dialog box to load the mesh you want to find object similar to it.
+        self._search_txtbox = gui.TextEdit()
+
+        #Add button that will open the search
+        findfilebutton = gui.Button("...")
+        findfilebutton.horizontal_padding_em = 0.5
+        findfilebutton.vertical_padding_em = 0
+        findfilebutton.set_on_clicked(self.on_load_mesh)
+
+        #Create horizontal layout for "search bar"
+        search_layout = gui.Horiz()
+
+        #add label that indicate current file
+        search_layout.add_child(gui.Label("Current file"))
+
+        #Add elements to the horizontal layout.
+        search_layout.add_child(self._search_txtbox)
+        search_layout.add_fixed(0.25 * em)
+        search_layout.add_child(findfilebutton)
+        
+        self._search_panel.add_child(search_layout)
+
+        #Create grid that contains the thumbnails of the most similar objects.
+        self._search_img_grid = gui.VGrid(
+            2, 1, gui.Margins(0.15 * em, 0.15 * em, 0.15 * em, 0.15 * em))
+        
+        for i in range(0,8): #8 is currently the k closest meshes we find for example.
+            entry = self.create_img_entry(basedir + "/gui_utils/blank.jpg")
+            self._search_img_grid.add_child(entry)
+            #NOTE: We can clear search_img_grid and recreate it with the new children
+            #which will be the imagewidgets of the newly found results.
+
+        self._search_panel.add_child(self._search_txtbox)
+        self._search_panel.add_child(self._search_img_grid)
+        self.window.add_child(self._search_panel)
+
+    def _on_layout(self, layout_context):
+        r = self.window.content_rect
+        self._scene_3d.frame = r
+        width = 17 * layout_context.theme.font_size
+        height = min(
+            r.height,
+            self._search_panel.calc_preferred_size(
+                layout_context, gui.Widget.Constraints()).height)
+        self._search_panel.frame = gui.Rect(r.get_right() - width, r.y, width,
+                                              height)
 
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
@@ -41,13 +118,12 @@ class MainWindow():
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
 
             search_menu = gui.Menu()
-            search_menu.add_item("Compare Mesh", MainWindow.SEARCH_MESH)
+            search_menu.add_item("Compare Mesh", MainWindow.MENU_SHOW_COMPARE)
+            search_menu.set_checked(MainWindow.MENU_SHOW_COMPARE, True)
 
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
         main_menu.add_menu("Search", search_menu)
-
-        self.window.set_on_menu_item_activated(MainWindow.SEARCH_MESH, self.on_search_like_mesh)
 
         if main_menu is None:
             self.log.error("Main menu could not be instantiated")
@@ -56,6 +132,7 @@ class MainWindow():
 
         self.window.set_on_menu_item_activated(MainWindow.ACTION_LOAD_MESH, self.on_load_mesh)
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
+        self.window.set_on_menu_item_activated(MainWindow.MENU_SHOW_COMPARE, self.on_menu_toggle_search)
 
     def load(self, path: str, use_wireframe: bool = True) -> None:
         '''Loads the file into a shape to render the mesh into the scene.
@@ -63,7 +140,7 @@ class MainWindow():
         Args:
             path (str): Path from which to load the mesh file.
         '''
-        if not exists(path):
+        if not os.path.exists(path):
             self.log.error('Try to load file at path %s which does not exist', path)
             return 
         
@@ -107,8 +184,10 @@ class MainWindow():
 
         self.window.show_dialog(load_dlg)
     
-    def on_search_like_mesh() -> None:
-        return
+    def on_menu_toggle_search(self) -> None:
+        self._search_panel.visible = not self._search_panel.visible
+        gui.Application.instance.menubar.set_checked(
+            MainWindow.MENU_SHOW_COMPARE, self._search_panel.visible)
 
     def _on_load_dialog_done(self, path: str) -> None:
         '''Closes the file loading dialog and loads the mesh
@@ -172,4 +251,5 @@ class MainWindow():
                                                    [5, 5, 5])
         self._scene_3d.setup_camera(60, bbox, [0, 0, 0])
         self._scene_3d.scene.show_axes(True)
+
         self.window.add_child(self._scene_3d)
