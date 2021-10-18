@@ -1,8 +1,8 @@
 '''Module for preprocessing the off and ply files'''
 from copy import deepcopy
 from logging import getLogger
-from os import mkdir
-from os.path import basename, exists, isfile
+from os import getcwd, mkdir
+from os.path import basename, exists, isfile, dirname
 from re import search, split
 from typing import Dict
 
@@ -11,6 +11,7 @@ from open3d import geometry, io, utility
 import pandas as pd
 from pymeshfix import PyTMesh
 from pymeshfix._meshfix import repair
+from shutil import copy2, copyfile
 
 from extraction import extract_all_features
 from util import compute_pca, locate_mesh_files
@@ -143,9 +144,19 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
 
-        # DATA ENTRY: Mesh path
-        current_mesh_path = output_path + '/' + basename(file)
+        # Create new
+        mesh_name  = basename(file)[:-4]
+        extended_output_path  = './' + output_path + '/' + mesh_name + '/'
+
+        if not exists (extended_output_path):
+            mkdir(extended_output_path)
+
+        current_mesh_path = extended_output_path + basename(file)
         io.write_triangle_mesh(current_mesh_path, current_mesh)
+
+        #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
+        thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
+        copy2(thumb_nail, extended_output_path)
 
         entry = {
             'aabb_max': aabb_max,
