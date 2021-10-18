@@ -1,16 +1,17 @@
 '''Module for comparing a single file against the database'''
 from logging import getLogger
-from os.path import isfile
-from typing import Dict, List, Tuple, Union
+from os.path import basename, isfile
+from typing import Dict
+from re import sub
 
-from numpy import ndarray, sqrt
-from pandas import DataFrame, read_csv, Series
+from numpy import asarray, nan, sqrt
+from pandas import concat, DataFrame, read_csv, Series
 
 from preprocess import single_preprocess
 
 log = getLogger('search')
 
-def compare(file_path: str, database_path: str, classification_path: str = None, custom_label: str = None) -> List[Tuple[str, str, float, Dict[str, float]]]:
+def compare(file_path: str, database_path: str, classification_path: str = None, custom_label: str = None) -> DataFrame:
     '''Compares a file against the database
 
     Args:
@@ -20,8 +21,7 @@ def compare(file_path: str, database_path: str, classification_path: str = None,
         custom_label (str, optional): A custom label for the file comparison
 
     Returns:
-        List[Tuple[str, str, float, Dict[str, float]]]: A list of similar file in order of alikeness.
-            The files are tuples giving: filename, file path, overall alikeness, alikness for each feature
+        DataFrame: A dataframe containing the distance to all features, and the appropriate file path and name, sorted from most to least alike
     '''
     # Check file paths for validity
     if not isfile(file_path):
@@ -50,18 +50,27 @@ def compare(file_path: str, database_path: str, classification_path: str = None,
     if custom_label is not None:
         feature_map['label'] = custom_label
 
-    # Get minimum and maximum values, first row is minimum, second row is maximum
-    minmax_frame = DataFrame([database.min(), database.max()])[['aabb_volume', 'compactness', 'diameter', 'eccentricity', 'surface_area']].rename(lambda i: ['min', 'max'][i])
-    
-    # Get the entry and the database normalized using the minmax frame
-    normalized = database.apply(lambda x: normalize_series(x, minmax_frame))
-    normalized = normalized[normalized.notnull()]
-    feature_map = normalize_entry(feature_map)
-    
-    # Get the distances for the simple features
-    simple_distances = simple_feature_distance(feature_map, normalized)
+    # Define the column groups for use later
+    distribution_feature_columns = ['A3', 'D1', 'D2', 'D3', 'D4']
+    simple_feature_columns = ['aabb_volume', 'compactness', 'diameter', 'eccentricity', 'surface_area']
 
-def distribution_distance(entry: Dict[str, float], values: DataFrame) -> DataFrame:
+    # Get minimum and maximum values, first row is minimum, second row is maximum
+    minmax_frame = DataFrame([database.min(), database.max()])[simple_feature_columns].rename(lambda i: ['min', 'max'][i])
+    
+    # Normalize the simple features and the entry to compare
+    normalized = database[simple_feature_columns].apply(normalize_series)
+    feature_map = normalize_entry(feature_map, minmax_frame)
+    
+    # Get the distances for the simple features, and the total distances
+    simple_distances = simple_feature_distance(feature_map, normalized)
+    distribution_distances = distribution_feature_distance(feature_map, database[distribution_feature_columns])
+    total_distances = concat([simple_distances, distribution_distances, database['path']], axis=1)
+    total_distances['name'] = total_distances['path'].apply(basename)
+    total_distances['total_distance'] = total_distances[['simple_features', 'distribution_features']].apply(lambda s: sqrt(sum(s ** 2)), 1)
+    
+    return total_distances.sort_values(by='total_distance')
+
+def distribution_feature_distance(entry: Dict[str, float], values: DataFrame) -> DataFrame:
     '''Calculates the euclidian distance between the distribution features in the database and that of a single entry
 
     Args:
@@ -71,8 +80,20 @@ def distribution_distance(entry: Dict[str, float], values: DataFrame) -> DataFra
     Returns:
         DataFrame: A dataframe containing the distances to each value and their total euclidian distance (in column "distribution_features")
     '''
-    # TODO: Calculate distances from histograms
-    raise NotImplementedError()
+    # Define some anonymous functions to use
+    to_dist = lambda a, b: sqrt(sum(abs(a - b) ** 2))
+    to_numpy = lambda s: asarray([float(x) for x in sub(r'[\,\[\]]', '', s).split(' ')]) if type(s) is str else s
+
+    # Convert strings to numpy arrays
+    values = values[['A3', 'D1', 'D2', 'D3', 'D4']].apply(lambda s: s.apply(to_numpy))
+    
+    # Calculate the euclidian distance for each column
+    values.transform(lambda c: c.apply(lambda a: to_dist(a, to_numpy(entry[c.name]))))
+    
+    # Calculate the euclidian distance for all distribution features per row
+    values['distribution_features'] = normalize_series(values.apply(lambda s: sqrt(sum(s.apply(lambda v: sum(v ** 2)))), 1))
+
+    return values
 
 def normalize_entry(entry: Dict[str, float], minmax: DataFrame) -> Dict[str, float]:
     '''Normalizes a single entry using a minimum and maximum from a dataframe
@@ -88,24 +109,25 @@ def normalize_entry(entry: Dict[str, float], minmax: DataFrame) -> Dict[str, flo
 
     for c in minmax.columns:
         if c in keys:
+            if entry[c] is None:
+                entry[c] = nan
             entry[c] = (entry[c] - minmax.loc['min', c]) / (minmax.loc['max', c] - minmax.loc['min', c])
 
     return entry
 
-def normalize_series(value: Series, minmax: DataFrame) -> Series:
-    '''Gets the normalized values for a series between a minimum and maximum
+def normalize_series(value: Series) -> Series:
+    '''Normalize the values of a Series to a range from zero to one
 
     Args:
         value (Series): The series to normalize
-        minmax (DataFrame): The dataframe containing the minimum and maximum values
 
     Returns:
         Series: The normalized series
     '''
-    if not value.name in minmax.columns:
-        return None
+    maximum = value.max()
+    minimum = value.min()
 
-    return (value - minmax.loc['min', value.name]) / (minmax.loc['max', value.name] - minmax.loc['min', value.name])
+    return (value - minimum) / (maximum - minimum)
 
 def simple_feature_distance(entry: Dict[str, float], values: DataFrame) -> DataFrame:
     '''Calculates the euclidian distance between the simple features in the database and that of a single entry
@@ -119,6 +141,8 @@ def simple_feature_distance(entry: Dict[str, float], values: DataFrame) -> DataF
     '''
     values = values[['aabb_volume', 'compactness', 'diameter', 'eccentricity', 'surface_area']]
     distances = values.apply(lambda s: abs(s - entry[s.name])).fillna(0)
-    distances['simple_features'] = distances.apply(lambda r: sqrt(sum(r ** 2)))
+    distances['simple_features'] = normalize_series(distances.apply(lambda r: sqrt(sum(r ** 2)), 1))
 
     return distances
+
+test = compare('./test_shapes/m100.off', './data_out/database.csv')

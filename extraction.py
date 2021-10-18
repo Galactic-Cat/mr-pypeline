@@ -1,14 +1,14 @@
 '''Module for extracting features from 3D meshes'''
+# TODO: Some of the distribution feature extraction is underperforming and should be refactored
 from logging import getLogger
-from math import floor, pi, sqrt
+from math import pi, sqrt
 from typing import Dict, List, Union
 
 import numpy as np
 from open3d import geometry, io, utility
-
 import matplotlib.pyplot as plt
 
-from util import compute_pca, grouped
+from util import compute_pca
 
 log = getLogger('features')
 SAMPLE_SIZE = 250
