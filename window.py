@@ -7,6 +7,7 @@ from numpy.lib.npyio import load
 
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
+from search import SearchEngine
 
 
 class MainWindow():
@@ -15,10 +16,8 @@ class MainWindow():
     # Menu statics
     ACTION_LOAD_MESH = 1
     ACTION_CLEAR_MESH = 2
-    READ_DATA_BASE = 3
+    SEARCH_MESH = 3
 
-    # Database paths
-    PRINCETON_PATH = "\\princeton" + "\\db" 
 
     log = getLogger('MainWindow')
 
@@ -31,20 +30,24 @@ class MainWindow():
         '''
         
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
-        
+        self.search_engine = SearchEngine('output\preprocess\database.csv')
         self.create_menu_bar()
         self.create_3D_scene()
 
-        
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
             action_menu = gui.Menu()
             action_menu.add_item("Load Mesh", MainWindow.ACTION_LOAD_MESH)
             action_menu.add_item("Clear Mesh", MainWindow.ACTION_CLEAR_MESH)
 
+            search_menu = gui.Menu()
+            search_menu.add_item("Compare Mesh", MainWindow.SEARCH_MESH)
 
         main_menu = gui.Menu()
         main_menu.add_menu("Actions", action_menu)
+        main_menu.add_menu("Search", search_menu)
+
+        self.window.set_on_menu_item_activated(MainWindow.SEARCH_MESH, self.on_search_like_mesh)
 
         if main_menu is None:
             self.log.error("Main menu could not be instantiated")
@@ -103,6 +106,9 @@ class MainWindow():
         load_dlg.set_on_done(self._on_load_dialog_done)
 
         self.window.show_dialog(load_dlg)
+    
+    def on_search_like_mesh() -> None:
+        return
 
     def _on_load_dialog_done(self, path: str) -> None:
         '''Closes the file loading dialog and loads the mesh

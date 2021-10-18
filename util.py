@@ -1,11 +1,15 @@
 '''Utility functions'''
+import ast
 from typing import Iterable, Tuple
 from os import listdir
 from os.path import isfile, isdir
 from open3d import geometry
 
+import pandas as pd
 import numpy as np
 
+def converter(instr):
+    return np.asarray(ast.literal_eval(instr))
 
 def locate_mesh_files(input_path: str):
 
