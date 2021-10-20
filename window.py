@@ -41,6 +41,8 @@ class MainWindow():
 
         self.create_menu_bar()
 
+    # Creation Functionality
+
     def create_img_entry(self, path: str) -> gui.Vert:
         entry = gui.Vert(0)
 
@@ -71,7 +73,7 @@ class MainWindow():
         findfilebutton = gui.Button("...")
         findfilebutton.horizontal_padding_em = 0.5
         findfilebutton.vertical_padding_em = 0
-        findfilebutton.set_on_clicked(self.on_load_mesh)
+        findfilebutton.set_on_clicked(self.on_search_mesh)
 
         #Create horizontal layout for "search bar"
         search_layout = gui.Horiz()
@@ -134,6 +136,21 @@ class MainWindow():
         self.window.set_on_menu_item_activated(MainWindow.ACTION_CLEAR_MESH, self.on_clear_scene)
         self.window.set_on_menu_item_activated(MainWindow.MENU_SHOW_COMPARE, self.on_menu_toggle_search)
 
+    def create_file_dialog(self) -> gui.FileDialog:
+        
+        load_dlg = gui.FileDialog(gui.FileDialog.OPEN, "Choose a mesh to load",
+                            self.window.theme)
+        
+        load_dlg.add_filter(".ply .off", "Mesh files (.ply .off)")
+        load_dlg.add_filter(".off", "Object File Format (.off)")
+        load_dlg.add_filter(".ply", "Polygon Files (.ply)")
+
+        load_dlg.set_on_cancel(self.window.close_dialog)
+
+        return load_dlg
+
+    #Load functionality
+
     def load(self, path: str, use_wireframe: bool = True) -> None:
         '''Loads the file into a shape to render the mesh into the scene.
         
@@ -172,22 +189,11 @@ class MainWindow():
         Args:
             filepath (str): The file path
         '''
-        load_dlg = gui.FileDialog(gui.FileDialog.OPEN, "Choose a mesh to load",
-                            self.window.theme)
-        
-        load_dlg.add_filter(".ply .off", "Mesh files (.ply .off)")
-        load_dlg.add_filter(".off", "Object File Format (.off)")
-        load_dlg.add_filter(".ply", "Polygon Files (.ply)")
+        load_dlg = self.create_file_dialog()
 
-        load_dlg.set_on_cancel(self.window.close_dialog)
         load_dlg.set_on_done(self._on_load_dialog_done)
 
         self.window.show_dialog(load_dlg)
-    
-    def on_menu_toggle_search(self) -> None:
-        self._search_panel.visible = not self._search_panel.visible
-        gui.Application.instance.menubar.set_checked(
-            MainWindow.MENU_SHOW_COMPARE, self._search_panel.visible)
 
     def _on_load_dialog_done(self, path: str) -> None:
         '''Closes the file loading dialog and loads the mesh
@@ -197,6 +203,39 @@ class MainWindow():
         '''                
         self.window.close_dialog()
         self.load(path)
+    
+    #Search functionality
+
+    def on_menu_toggle_search(self) -> None:
+        self._search_panel.visible = not self._search_panel.visible
+        gui.Application.instance.menubar.set_checked(
+            MainWindow.MENU_SHOW_COMPARE, self._search_panel.visible)
+    
+    def on_search_mesh(self):
+        '''Attempts to load a file from a path into the viewport
+
+        Args:
+            filepath (str): The file path
+        '''
+        load_dlg = self.create_file_dialog()
+
+        load_dlg.set_on_done(self._on_search_dialog_done)
+
+        self.window.show_dialog(load_dlg)
+    
+    def search_similar_to(self, path: str):
+
+        results = self.search_engine.compare(path)
+        print(results)
+
+    def _on_search_dialog_done(self, path:str) -> None:
+        self.window.close_dialog()
+        self._search_txtbox.text_value = path
+        self.load(path)
+        self.search_similar_to(path)
+
+
+    #Clearing functionality
 
     def on_clear_scene(self):
         font_size = self.window.theme.font_size

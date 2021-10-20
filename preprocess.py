@@ -130,6 +130,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
+        #verify closed mesh
+        #current_mesh = make_watertight(current_mesh)
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
@@ -218,6 +220,7 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
             log.debug('Labeled mesh %s as %s', basename(file_path), entry['label'])
     
     # Fix and normalize the mesh, and get the features
+    #mesh = make_watertight(mesh)
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
     features = extract_all_features(mesh)
@@ -389,14 +392,16 @@ def make_watertight(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The closed mesh
     '''
-    tin = PyTMesh()
-    
-    tin.load_array(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
-    repair(tin)
+    if not mesh.is_watertight():
+        log.error('Non-watertight mesh found')
+        tin = PyTMesh()
+        
+        tin.load_array(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
+        repair(tin)
 
-    fixed_vertices, fixed_faces = tin.return_arrays()
-    mesh.vertices = utility.Vector3dVector(fixed_vertices)
-    mesh.triangles = utility.Vector3iVector(fixed_faces)
+        fixed_vertices, fixed_faces = tin.return_arrays()
+        mesh.vertices = utility.Vector3dVector(fixed_vertices)
+        mesh.triangles = utility.Vector3iVector(fixed_faces)
 
     return mesh
 

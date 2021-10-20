@@ -27,15 +27,6 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
     vertex_count = vertices.shape[0] - (vertices.shape[0] % 3)
     entries = []
 
-    # for point_a, point_b, point_c in grouped(np.random.choice(vertices.shape[0], False), 3):
-    #     print(point_a, point_b, point_c)
-    #     ba_vector = point_a - point_b
-    #     bc_vector = point_c - point_c
-    #     cos_angle = np.dot(ba_vector, bc_vector) / (np.linalg.norm(ba_vector) * np.linalg.norm(bc_vector))
-
-    #     # Normalize angle to a value in range [0, 1), for use in histograms
-    #     entries.append(np.degrees(np.arccos(cos_angle)))# / 360)
-
     for point in range(samples):
         random_indeces = np.random.choice(vertices.shape[0], size=3, replace= False)
         random_vertices = vertices[random_indeces, :]
