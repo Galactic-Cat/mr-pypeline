@@ -49,7 +49,7 @@ class Search:
 
         # Extract the features from the mesh
         feature_map = single_preprocess(path, classification_path)
-        
+
         if feature_map is None:
             log.critical('Failed to extract features from "%s" for comparison', path)
             return
@@ -64,9 +64,10 @@ class Search:
 
         # Get minimum and maximum values, first row is minimum, second row is maximum
         minmax_frame = DataFrame([self.database.min(), self.database.max()])[simple_feature_columns].rename(lambda i: ['min', 'max'][i])
-        
+
         # Normalize the simple features and the entry to compare
         normalized = self.database[simple_feature_columns].apply(self.normalize_series)
+
         feature_map = self.normalize_entry(feature_map, minmax_frame)
         
         # Get the distances for the simple features, and the total distances
@@ -103,7 +104,7 @@ class Search:
 
         return values
 
-    def normalize_entry(entry: Dict[str, float], minmax: DataFrame) -> Dict[str, float]:
+    def normalize_entry(self, entry: Dict[str, float], minmax: DataFrame) -> Dict[str, float]:
         '''Normalizes a single entry using a minimum and maximum from a dataframe
 
         Args:
@@ -123,7 +124,7 @@ class Search:
 
         return entry
 
-    def normalize_series(value: Series) -> Series:
+    def normalize_series(self, value: Series) -> Series:
         '''Normalize the values of a Series to a range from zero to one
 
         Args:

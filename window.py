@@ -9,6 +9,7 @@ from numpy.lib.npyio import load
 from open3d import geometry, io
 from open3d.visualization import gui, rendering
 from search import Search
+from pandas import DataFrame
 
 basedir = os.path.dirname(os.path.realpath(__file__))
 
@@ -19,6 +20,8 @@ class MainWindow():
     ACTION_LOAD_MESH = 1
     ACTION_CLEAR_MESH = 2
     MENU_SHOW_COMPARE = 11
+
+    SEARCH_SAMPLE = 8
 
 
     log = getLogger('MainWindow')
@@ -33,6 +36,7 @@ class MainWindow():
 
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
         self.search_engine = Search('output\preprocess\database.csv')
+        self.results = None
 
         self.create_3D_scene()
         self.create_search_panel()
@@ -43,14 +47,14 @@ class MainWindow():
 
     # Creation Functionality
 
-    def create_img_entry(self, path: str) -> gui.Vert:
+    def create_img_entry(self, widget = gui.ImageWidget, label = gui.Label) -> gui.Vert:
         entry = gui.Vert(0)
 
-        entry.add_child(gui.ImageWidget(path))
+        entry.add_child(widget)
 
         entry_label_layout = gui.Horiz()
         entry_label_layout.add_stretch()
-        entry_label_layout.add_child(gui.Label(basename(path)))
+        entry_label_layout.add_child(label)
         entry_label_layout.add_stretch()
 
         entry.add_child(entry_label_layout)
@@ -92,11 +96,22 @@ class MainWindow():
         self._search_img_grid = gui.VGrid(
             2, 1, gui.Margins(0.15 * em, 0.15 * em, 0.15 * em, 0.15 * em))
         
-        for i in range(0,8): #8 is currently the k closest meshes we find for example.
-            entry = self.create_img_entry(basedir + "/gui_utils/blank.jpg")
+        self._img_widgets = []
+        self._img_labels = []
+
+        blank_path = basedir + "/gui_utils/blank.jpg"
+
+        for i in range(0,self.SEARCH_SAMPLE):
+
+            widget = gui.ImageWidget(blank_path)
+            label = gui.Label(basename(blank_path))
+
+            self._img_widgets.append(widget)
+            self._img_labels.append(label)
+
+            entry = self.create_img_entry(widget, label)
             self._search_img_grid.add_child(entry)
-            #NOTE: We can clear search_img_grid and recreate it with the new children
-            #which will be the imagewidgets of the newly found results.
+
 
         self._search_panel.add_child(self._search_txtbox)
         self._search_panel.add_child(self._search_img_grid)
@@ -211,6 +226,24 @@ class MainWindow():
         gui.Application.instance.menubar.set_checked(
             MainWindow.MENU_SHOW_COMPARE, self._search_panel.visible)
     
+
+    def display_search_results(self, results: DataFrame) -> None:
+        em = self.window.theme.font_size
+        self.results = results[['path', 'name']].head(self.SEARCH_SAMPLE)
+        
+        def update():
+            for index, widget, label in zip(self.results.index, self._img_widgets, self._img_labels): 
+                file_name = self.results['name'][index][:-4]
+                full_path = basedir + "/output/preprocess/" + file_name + "/" + file_name + "_thumb.jpg"
+
+                image = io.read_image(full_path)
+                widget.update_image(image)
+
+                label.text = file_name
+        # This actually updates the changes, otherwise it doesnt work.
+        gui.Application.instance.post_to_main_thread(
+                    self.window, update)
+
     def on_search_mesh(self):
         '''Attempts to load a file from a path into the viewport
 
@@ -226,13 +259,14 @@ class MainWindow():
     def search_similar_to(self, path: str):
 
         results = self.search_engine.compare(path)
-        print(results)
+        self.display_search_results(results)
 
     def _on_search_dialog_done(self, path:str) -> None:
         self.window.close_dialog()
         self._search_txtbox.text_value = path
-        self.load(path)
         self.search_similar_to(path)
+        self.load(path)
+        self.window.close_dialog()
 
 
     #Clearing functionality
