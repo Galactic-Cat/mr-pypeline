@@ -47,20 +47,6 @@ class MainWindow():
 
     # Creation Functionality
 
-    def create_img_entry(self, widget = gui.ImageWidget, label = gui.Label) -> gui.Vert:
-        entry = gui.Vert(0)
-
-        entry.add_child(widget)
-
-        entry_label_layout = gui.Horiz()
-        entry_label_layout.add_stretch()
-        entry_label_layout.add_child(label)
-        entry_label_layout.add_stretch()
-
-        entry.add_child(entry_label_layout)
-        
-        return entry
-
     def create_search_panel(self):
         self.search_results = [] # Define it for later use.
 
@@ -91,30 +77,18 @@ class MainWindow():
         search_layout.add_child(findfilebutton)
         
         self._search_panel.add_child(search_layout)
+        title_layout = gui.Horiz()
+        title_layout.add_stretch()
+        title_layout.add_child(gui.Label("Query Results"))
+        title_layout.add_stretch()
 
-        #Create grid that contains the thumbnails of the most similar objects.
-        self._search_img_grid = gui.VGrid(
-            2, 1, gui.Margins(0.15 * em, 0.15 * em, 0.15 * em, 0.15 * em))
-        
-        self._img_widgets = []
-        self._img_labels = []
-
-        blank_path = basedir + "/gui_utils/blank.jpg"
-
-        for i in range(0,self.SEARCH_SAMPLE):
-
-            widget = gui.ImageWidget(blank_path)
-            label = gui.Label(basename(blank_path))
-
-            self._img_widgets.append(widget)
-            self._img_labels.append(label)
-
-            entry = self.create_img_entry(widget, label)
-            self._search_img_grid.add_child(entry)
-
+        self._list_widget = gui.ListView()
+        self._list_widget.selected_index = -1
+        self._list_widget.set_on_selection_changed(self._on_list)
 
         self._search_panel.add_child(self._search_txtbox)
-        self._search_panel.add_child(self._search_img_grid)
+        self._search_panel.add_child(title_layout)
+        self._search_panel.add_child(self._list_widget)
         self.window.add_child(self._search_panel)
 
     def _on_layout(self, layout_context):
@@ -228,21 +202,12 @@ class MainWindow():
     
 
     def display_search_results(self, results: DataFrame) -> None:
-        em = self.window.theme.font_size
-        self.results = results[['path', 'name']].head(self.SEARCH_SAMPLE)
-        
-        def update():
-            for index, widget, label in zip(self.results.index, self._img_widgets, self._img_labels): 
-                file_name = self.results['name'][index][:-4]
-                full_path = basedir + "/output/preprocess/" + file_name + "/" + file_name + "_thumb.jpg"
-
-                image = io.read_image(full_path)
-                widget.update_image(image)
-
-                label.text = file_name
-        # This actually updates the changes, otherwise it doesnt work.
-        gui.Application.instance.post_to_main_thread(
-                    self.window, update)
+        self.results = results[['path']].head(self.SEARCH_SAMPLE)
+        items = [basedir + entry[1:] for entry in self.results['path']]
+        self._list_widget.set_items(items)
+    
+    def _on_list(self, new_val, is_dlb_click):
+        self.load(new_val)
 
     def on_search_mesh(self):
         '''Attempts to load a file from a path into the viewport
