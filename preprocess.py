@@ -17,7 +17,7 @@ from extraction import extract_all_features
 from util import compute_pca, locate_mesh_files
 
 log = getLogger('preprocess')
-SIZE_PARAM = 3500 # Check which value we want to use.
+SIZE_PARAM = 2500 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 

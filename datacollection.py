@@ -26,7 +26,11 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
     if dataframe is None:
         log.error('Dataframe has not been instantiated.')
         return
-    
+
+    # if feature_name == 'face_count' or feature_name == 'vertex_count':
+    #     data_threshold = np.percentile(data, 85)
+    #     data = data[(data <= data_threshold)]
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(data, bins = bins_, weights=np.zeros_like(data) + 100. / data.size)
@@ -38,6 +42,13 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
     plt.close()
 
     return
+
+def verify_translation(current_mesh: geometry.TriangleMesh) -> float:
+
+    centroid = current_mesh.get_center()
+    norm = np.linalg.norm(centroid)
+    return norm
+
 
 def display_class_distributions(input_path:str, output_path: str) -> None:
     
@@ -141,8 +152,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             current_mesh = io.read_triangle_mesh(file)
             aabb_size = verify_scaling(current_mesh)
             x_coordinate = verify_rotation(current_mesh)
+            distance_from_center = verify_translation(current_mesh)
             shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
-                                    "aabb_size": aabb_size, "x_coord": x_coordinate}
+                                    "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate}
 
             files_information.append(shape_information)
 
@@ -152,10 +164,12 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['face_count'].to_numpy(), title = 'Distribution of Face counts', feature_name = 'face_count', output_path = output_path, xlabel = 'Face Count')
         visualize_data(data = dataframe['vertex_count'].to_numpy(), title = 'Distribution of Vertex counts' , feature_name =  'vertex_count', output_path = output_path, xlabel = 'Vertex Count')
         visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
+        visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
         visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
         calculate_features(output_path)
 
     return
 
 #TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
+#TODO VERIFY TRANSLATIONS (to plot them)
 
