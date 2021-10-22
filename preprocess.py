@@ -157,8 +157,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         io.write_triangle_mesh(current_mesh_path, current_mesh)
 
         #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
-        thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
-        copy2(thumb_nail, extended_output_path)
+        # thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
+        # copy2(thumb_nail, extended_output_path)
 
         entry = {
             'aabb_max': aabb_max,
