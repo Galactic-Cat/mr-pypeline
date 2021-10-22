@@ -85,11 +85,17 @@ class Search:
             entry (Series): The entry to calculate the distance for
 
         Returns:
-            DataFrame: A dataframe containing the distances to each value and their total euclidian distance (in column "distribution_features")
+            DataFrame: A dataframe containing the standardized distances to each value and their total euclidian distance (in column "distribution_features")
         '''
         # Calculate the EMD for each feature for each value
         distance_matrix = generate_distance_matrix(20, 0.5)
         values = self.database[distribution_columns].apply(lambda c: c.apply(lambda a: emd(a, entry[c.name], distance_matrix)))
+        
+        # Standardize the calculated distances
+        averages = values.mean()
+        stddevs = values.std()
+        
+        values.transform(lambda c: (c - averages) / stddevs, axis=1)
         
         # Calculate the euclidian distance for all distribution features per row
         values['distribution_features'] = values.apply(lambda r: np.sqrt(np.sum(r ** 2)), axis=1)
@@ -101,12 +107,16 @@ class Search:
 
         Args:
             entry (Series): The entry to calculate the distance for
-            values (DataFrame): The other database entries to compare
 
         Returns:
             DataFrame: A dataframe containing the distances to each value and their total euclidian distance (in column "scalar_features")
         '''
         distances = self.database[scalar_columns].apply(lambda s: np.abs(s - entry[s.name])).fillna(0)
+        averages = distances.mean()
+        stddevs = distances.std()
+        
+        distances.transform(lambda c: (c - averages) / stddevs, axis=1)
+
         distances['scalar_features'] = distances.apply(lambda r: np.sqrt(np.sum(r ** 2)), axis=1)
 
         return distances
@@ -121,17 +131,15 @@ class Search:
             Series: The dictionary as a feature vector
         '''
         raw_series = Series(entry)
-        scalars = (raw_series[scalar_columns] - self.averages) / self.stddevs
+        scalars = raw_series[scalar_columns].fillna(0.0)
         distributions = raw_series[distribution_columns].apply(np.asarray)
+
         return concat([scalars, distributions])
 
     def standardize_database(self) -> None:
         '''Standardizes the loaded database's feature values'''
         # Standardize the scalar features
         scalars = self.raw_database[scalar_columns]
-        self.averages = scalars.mean()
-        self.stddevs = scalars.std()
-        scalars = scalars.apply(lambda row: (row - self.averages) / self.stddevs, axis=1)
 
         # Convert the (already normalized) serialized histograms to numpy array
         to_numpy = lambda s: np.asarray([float(x) for x in sub(r'[\,\[\]]', '', s).split(' ')]) if type(s) is str else s
@@ -160,4 +168,4 @@ def generate_distance_matrix(size: int, unit_distance: float = 1.0) -> np.ndarra
 
 if __name__ == '__main__':
     s = Search('./data_out/database.csv')
-    print(s.compare('./test_shapes/m100.off'))
+    print(s.compare('./data_out/m100/m100.off'))
