@@ -2,8 +2,8 @@
 from logging import getLogger
 from os.path import exists, isfile
 from open3d import io, geometry
-from preprocess import find_aabb_points
-from util import compute_pca, locate_mesh_files
+from preprocess import find_aabb_points, convert_to_trimesh
+from util import locate_mesh_files
 
 import numpy as np
 import pandas as pd
@@ -116,9 +116,9 @@ def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: geometry.TriangleMesh):
-    x, _, _, _ = compute_pca(current_mesh)
-    return abs(x[0])
-
+    current_mesh = convert_to_trimesh(current_mesh)
+    #print(current_mesh.principal_inertia_vectors[0][0])
+    return abs(current_mesh.principal_inertia_vectors[0][0])
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -173,3 +173,6 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 #TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
 #TODO VERIFY TRANSLATIONS (to plot them)
 
+if __name__ == '__main__':
+     mesh = io.read_triangle_mesh('./test_shapes/m100.off')
+     verify_rotation(mesh)

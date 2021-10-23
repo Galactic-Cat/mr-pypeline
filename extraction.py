@@ -5,10 +5,10 @@ from math import pi, sqrt
 from typing import Dict, List, Union
 
 import numpy as np
-from open3d import geometry, io, utility
+from open3d import geometry, utility
 import matplotlib.pyplot as plt
 
-from util import compute_pca
+from util import convert_to_trimesh
 
 log = getLogger('features')
 SAMPLE_SIZE = 250
@@ -43,7 +43,6 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
 
     return entries
 
-    return entries
 
 def distance_between_points(vector_1: np.array, vector_2: np.array) -> float:
     '''Calculates distance between two points
@@ -227,6 +226,7 @@ def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_S
 
     return entries
 
+#TODO EDIT THIS SO I CAN USE TRI MESH COMPUTATIONS
 def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
     '''Extract some simple features from a 3D mesh
 
@@ -238,17 +238,18 @@ def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
     '''
     values = {}
 
+    tri_mesh = convert_to_trimesh(mesh)
+
     # Get the surface area
-    surface_area = mesh.get_surface_area()
+    surface_area = tri_mesh.area
     values['surface_area'] = surface_area
-    
+
     # Get compactness
-    if mesh.is_watertight():
-        values['compactness'] = (surface_area ** 3) / (36 * pi * (mesh.get_volume() ** 2))
+    if tri_mesh.is_watertight:
+        values['compactness'] = (surface_area ** 3) / (36 * pi * (tri_mesh.mass_properties['volume'] ** 2))
     else:
         values['compactness'] = None
         log.error("Cannot find compactness of a non-watertight mesh")
-    
     # Get AABB volume
     values['aabb_volume'] = mesh.get_axis_aligned_bounding_box().volume()
 
@@ -262,9 +263,9 @@ def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
         squared_distances[i,:] = np.sum(np.square(vertices[i,:] - vertices), axis=1)
 
     values['diameter'] = np.sqrt(np.max(squared_distances))
-    
+
     # Get eccentricity
-    _, _, _, eigenvalues = compute_pca(mesh)
+    eigenvalues = tri_mesh.principal_inertia_components
     values['eccentricity'] = abs(max(eigenvalues)) / abs(min(eigenvalues))
     
     return values
@@ -313,29 +314,3 @@ def extract_all_features(mesh: geometry.TriangleMesh) -> Dict[str, Union[float, 
     features.update(distributions)
 
     return features
-
-
-# Leaving for debug purposes
-if __name__ == '__main__':
-    mesh = io.read_triangle_mesh('./output/preprocess/m100.off')
-    #mesh = mesh if not mesh.is_empty() else io.read_triangle_mesh('./data_out/m100.off') # NOTE: My data_out looks like this ~Simon
-
-    A3 = angle_between_randoms(mesh)
-    A3_counts, A3_bins = create_histogram(data = A3, bin_count = 20)
-    visualize_histogram(A3_counts, A3_bins, "Angles between 3 random vertices", "./output/hist_test/3_random_angles.png")
-
-    D1 = distance_barycenter_to_random(mesh)
-    D1_counts, D1_bins = create_histogram(data = D1, bin_count = 20)
-    visualize_histogram(D1_counts, D1_bins,  "Distances between barycenter to random vertex", "./output/hist_test/barycenter_to_random.png")
-    
-    D2 = distance_random_to_random(mesh)
-    D2_counts, D2_bins = create_histogram(data = D2, bin_count = 20)
-    visualize_histogram(D2_counts, D2_bins, "Distances between two random vertices", "./output/hist_test/random_to_random.png")
-
-    D3 = area_of_random_vertices(mesh)
-    D3_counts, D3_bins = create_histogram(data = D3, bin_count = 20)
-    visualize_histogram(D3_counts, D3_bins, "Area of triangle from 3 random points", "./output/hist_test/area_3_random_vertices.png")
-    
-    D4 = volume_of_random_vertices(mesh)
-    D4_counts, D4_bins = create_histogram(data = D4, bin_count = 20)
-    visualize_histogram(D4_counts, D4_bins, "Volume of tetahedron from 4 random points", "./output/hist_test/tetrahedron_area.png")

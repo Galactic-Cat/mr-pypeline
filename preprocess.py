@@ -1,20 +1,17 @@
 '''Module for preprocessing the off and ply files'''
-from copy import deepcopy
 from logging import getLogger
-from os import getcwd, mkdir
+from os import mkdir
 from os.path import basename, exists, isfile, dirname
 from re import search, split
 from typing import Dict
+from shutil import copy2
+from open3d import geometry, io, utility
 
 import numpy as np
-from open3d import geometry, io, utility
 import pandas as pd
-from pymeshfix import PyTMesh
-from pymeshfix._meshfix import repair
-from shutil import copy2, copyfile
 
 from extraction import extract_all_features
-from util import compute_pca, locate_mesh_files
+from util import fix_mesh, locate_mesh_files, convert_to_trimesh, compute_pca
 
 log = getLogger('preprocess')
 SIZE_PARAM = 2500 # Check which value we want to use.
@@ -131,7 +128,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
 
         #verify closed mesh
-        #current_mesh = make_watertight(current_mesh)
+        current_mesh = make_watertight(current_mesh)
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
@@ -220,7 +217,7 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
             log.debug('Labeled mesh %s as %s', basename(file_path), entry['label'])
     
     # Fix and normalize the mesh, and get the features
-    #mesh = make_watertight(mesh)
+    mesh = make_watertight(mesh) 
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
     features = extract_all_features(mesh)
@@ -332,15 +329,14 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
+
+    tri_mesh = convert_to_trimesh(mesh)
+
     x_axis, y_axis, z_axis, _ = compute_pca(mesh)
     centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 
     vertices = []
-    # R = np.stack([x_axis, y_axis ,z_axis])
-    # # print(R.shape)
-    # mesh = mesh.rotate(R,center = centroid)
 
-    # return mesh
     for vertex in np.asarray(mesh.vertices):
 
         coords =  vertex - centroid
@@ -369,7 +365,7 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''
     aabb = mesh.get_axis_aligned_bounding_box()
     max_bound = aabb.get_max_bound()
-    mesh_center = mesh.get_center()
+    mesh_center = calculate_mesh_center(mesh)
     min_bound = aabb.get_min_bound()
 
     diff = abs(max_bound - min_bound)
@@ -383,7 +379,7 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh.scale(scale_factor, mesh_center)
 
-def make_watertight(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def make_watertight(mesh) -> geometry.TriangleMesh:
     '''Attempts to make a mesh watertight
 
     Args:
@@ -392,18 +388,32 @@ def make_watertight(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The closed mesh
     '''
-    if not mesh.is_watertight():
-        log.error('Non-watertight mesh found')
-        tin = PyTMesh()
-        
-        tin.load_array(np.asarray(mesh.vertices), np.asarray(mesh.triangles))
-        repair(tin)
 
-        fixed_vertices, fixed_faces = tin.return_arrays()
-        mesh.vertices = utility.Vector3dVector(fixed_vertices)
-        mesh.triangles = utility.Vector3iVector(fixed_faces)
+    #Convert mesh to tri mesh
+    if type(mesh) is geometry.TriangleMesh:
+        mesh = convert_to_trimesh(mesh)
 
-    return mesh
+    if not mesh.is_watertight:
+        mesh = fix_mesh(mesh)
+        log.error(f'Non-watertightness identified and fix attempted, success: {mesh.is_watertight}')
+
+    return mesh.as_open3d
+
+def translate_and_align(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    
+    mesh = convert_to_trimesh(mesh)
+    transformation = mesh.principal_inertia_transform
+    mesh.apply_transform(transformation)
+
+    return mesh.as_open3d
+
+def calculate_mesh_center(mesh: geometry.TriangleMesh):
+    mesh = convert_to_trimesh(mesh)
+
+    if mesh.is_watertight:
+        return mesh.center_mass
+
+    return mesh.centroid
 
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that calls every necessary normalization step.
@@ -414,13 +424,15 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The normalized mesh
     '''
+
     mesh_center = mesh.get_center()
 
-    # STEP 1: Translate
     mesh = mesh.translate(-mesh_center)
 
-    # STEP 2: Align
     mesh = pose_alignment(mesh)
+
+    # STEP 1 AND 2: Translation and Align
+    #mesh = translate_and_align(mesh)
 
     # STEP 3: Flip test
     mesh = flip_test(mesh)
@@ -428,14 +440,11 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     # STEP 4: Scale
     mesh = scale_mesh(mesh)
 
-    # # Step 5: Fix mesh
-    # if not mesh.is_watertight():
-    #     log.debug('Attempting to make mesh watertight')
-    #     original_mesh = deepcopy(mesh)
-    #     mesh = make_watertight(mesh)
-
-    #     if not mesh.is_watertight():
-    #         log.error('Failed to make mesh watertight')
-    #         mesh = original_mesh
-
     return mesh
+
+
+if __name__ == '__main__':
+    mesh = io.read_triangle_mesh('./test_shapes/m100.off')
+    mesh = make_watertight(mesh)
+    mesh = normalize_mesh(mesh)
+    io.write_triangle_mesh('./test_shapes/pre.off',mesh)
