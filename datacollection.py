@@ -3,7 +3,7 @@ from logging import getLogger
 from os.path import exists, isfile
 from open3d import io, geometry
 from preprocess import find_aabb_points, convert_to_trimesh
-from util import locate_mesh_files
+from util import compute_pca, locate_mesh_files
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def verify_translation(current_mesh: geometry.TriangleMesh) -> float:
 def display_class_distributions(input_path:str, output_path: str) -> None:
     
     df = pd.read_csv(input_path)
-    df = df.drop(columns = ['path', 'face_count', 'vertex_count', 'surface_area', 'aabb_volume', 'compactness', 'diameter', 'eccentricity'])
+    df = df.drop(columns = ['aabb_max','aabb_min','path', 'face_count', 'vertex_count', 'surface_area', 'aabb_volume', 'compactness', 'diameter', 'eccentricity'])
     df = df.dropna()
     
     labels = df['label'].dropna().unique()
@@ -116,9 +116,10 @@ def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: geometry.TriangleMesh):
-    current_mesh = convert_to_trimesh(current_mesh)
+    #current_mesh = convert_to_trimesh(current_mesh)
     #print(current_mesh.principal_inertia_vectors[0][0])
-    return abs(current_mesh.principal_inertia_vectors[0][0])
+    x_axis, y_axis, z_axis, _ = compute_pca(mesh)
+    return abs(x_axis[0])
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
