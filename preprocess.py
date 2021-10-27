@@ -330,8 +330,6 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
 
-    tri_mesh = convert_to_trimesh(mesh)
-
     x_axis, y_axis, z_axis, _ = compute_pca(mesh)
     centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 
@@ -430,9 +428,6 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     mesh = mesh.translate(-mesh_center)
 
     mesh = pose_alignment(mesh)
-
-    # STEP 1 AND 2: Translation and Align
-    #mesh = translate_and_align(mesh)
 
     # STEP 3: Flip test
     mesh = flip_test(mesh)

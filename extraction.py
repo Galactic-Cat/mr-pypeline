@@ -2,6 +2,7 @@
 # TODO: Some of the distribution feature extraction is underperforming and should be refactored
 from logging import getLogger
 from math import pi, sqrt
+import math
 from typing import Dict, List, Union
 
 import numpy as np
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 from util import convert_to_trimesh
 
 log = getLogger('features')
-SAMPLE_SIZE = 250
+SAMPLE_SIZE = 1000
 
 def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates angle between 3 random vertices.
@@ -27,20 +28,38 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
     vertex_count = vertices.shape[0] - (vertices.shape[0] % 3)
     entries = []
 
-    for point in range(samples):
-        random_indeces = np.random.choice(vertices.shape[0], size=3, replace= False)
-        random_vertices = vertices[random_indeces, :]
+    sample_count = int((samples)**(1.0/3.0))
 
-        vector_b_to_a = random_vertices[0] - random_vertices[1]
-        vector_b_to_c = random_vertices[2] - random_vertices[1]
+    entries = []
 
-        cos_angle = np.dot(vector_b_to_a, vector_b_to_c) / (np.linalg.norm(vector_b_to_a) * np.linalg.norm(vector_b_to_c))
-        angle = np.arccos(cos_angle)
-        # This normalizes the angles to values between 0 - 1, facilitates histogram creation.
-        f_angle = np.degrees(angle)/360
+    for i in range(0, sample_count):
+        i_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+        v_i = vertices[i_index, :][0]
 
-        entries.append(f_angle)
+        for j in range(0, sample_count):
+            j_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+            v_j = vertices[j_index, :][0]
+            if j_index == i_index:
+                continue
 
+            for k in range(0,sample_count):
+                k_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+                v_k = vertices[k_index, :][0]
+                if k_index == i_index or k_index == j_index:
+                    continue
+            
+                vector_a_to_b = v_i - v_j
+                vector_c_to_b = v_k - v_j
+
+                cos_angle = np.dot(vector_a_to_b, vector_c_to_b) / (np.linalg.norm(vector_a_to_b) * np.linalg.norm(vector_c_to_b))
+                angle = np.arccos(cos_angle)
+                # This normalizes the angles to values between 0 - 1, facilitates histogram creation.
+                f_angle = np.degrees(angle)/360
+                if math.isnan(f_angle) is True:
+                    print(f"Cos angle:{cos_angle}, v_i: {v_i}, v_j:{v_j}, v_k:{v_k}")
+                    continue
+                entries.append(f_angle)    
+    #print(entries)
     return entries
 
 
@@ -77,9 +96,12 @@ def distance_barycenter_to_random(mesh: geometry.TriangleMesh, samples: int = SA
     '''
     barycenter = mesh.get_center()
     vertices = np.asarray(mesh.vertices)
+
+    sample_count = int((samples)**(1.0/3.0))
+
     entries = []
 
-    for point in range(samples):
+    for point in range(sample_count):
         random_indeces = np.random.choice(vertices.shape[0], size=1, replace= False)
         random_vertex = vertices[random_indeces, :]
         dist = distance_between_points(barycenter, random_vertex[0])
@@ -98,14 +120,23 @@ def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE
         List[float]: The distance between 2 random vertices
     '''
     vertices = np.asarray(mesh.vertices)
-    #vertex_count = vertices.shape[0] - (vertices.shape[0] % 2)
+
+    sample_count = int((samples)**(1.0/2.0))
+
     entries = []
 
-    for point in range(samples):
-        random_indeces = np.random.choice(vertices.shape[0], size=2, replace= False)
-        random_vertices = vertices[random_indeces, :]
-        dist = distance_between_points(random_vertices[0], random_vertices[1])
-        entries.append(dist)
+    for i in range(0, sample_count):
+        i_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+        v_i = vertices[i_index, :][0]
+
+        for j in range(0, sample_count):
+            j_index = np.random.choice(vertices.shape[0], size=1, replace= False)
+            v_j = vertices[j_index, :][0]
+            if j_index == i_index:
+                continue
+            dist = distance_between_points(v_i, v_j)
+            entries.append(dist)
+
 
     return entries
 

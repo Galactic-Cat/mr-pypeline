@@ -2,10 +2,12 @@
 from logging import getLogger
 from os.path import exists, isfile
 from open3d import io, geometry
-from preprocess import find_aabb_points, convert_to_trimesh
+from extraction import simple_features
+from preprocess import find_aabb_points, convert_to_trimesh, single_preprocess
 from util import compute_pca, locate_mesh_files
 
 import numpy as np
+import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import ast
@@ -14,6 +16,16 @@ import ast
 log = getLogger('data_collection')
 
 dataframe = None
+
+def verify_basic_features(output_path) -> None:
+    mesh = io.read_triangle_mesh("output\preprocess\m741\m741.off")
+    entry = simple_features(mesh)
+    print(entry)
+
+    mesh = io.read_triangle_mesh("output\preprocess\m517\m517.off")
+    entry = simple_features(mesh)
+    print(entry)
+    return
 
 def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
     ''' Function that will visualize the collected data given a .csv file
@@ -72,11 +84,11 @@ def display_class_distributions(input_path:str, output_path: str) -> None:
                 plt.plot(bins, entry)
 
             plt.tick_params(
-                axis='x',          # changes apply to the x-axis
-                which='both',      # both major and minor ticks are affected
-                bottom=False,      # ticks along the bottom edge are off
-                top=False,         # ticks along the top edge are off
-                labelbottom=False) # labels along the bottom edge are off
+                axis='x',
+                which='both',      
+                bottom=False,      
+                top=False,         
+                labelbottom=False) 
             plt.title(f'{column} Distribution for class: {c_label}')
             plt.savefig(output_path + f'/{c_label}_{column}_dist.png')
             plt.close()
@@ -116,9 +128,7 @@ def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: geometry.TriangleMesh):
-    #current_mesh = convert_to_trimesh(current_mesh)
-    #print(current_mesh.principal_inertia_vectors[0][0])
-    x_axis, y_axis, z_axis, _ = compute_pca(mesh)
+    x_axis, y_axis, z_axis, _ = compute_pca(current_mesh)
     return abs(x_axis[0])
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
@@ -168,11 +178,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
         visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
         calculate_features(output_path)
+        verify_basic_features(output_path)
 
     return
-
-#TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
-#TODO VERIFY TRANSLATIONS (to plot them)
 
 if __name__ == '__main__':
      mesh = io.read_triangle_mesh('./test_shapes/m100.off')

@@ -74,8 +74,9 @@ class Search:
         distribution_distances = self.distribution_feature_distance(feature_vector)
         total_distances = concat([simple_distances, distribution_distances, self.raw_database['path']], axis=1)
         total_distances['name'] = total_distances['path'].apply(basename)
-        total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1)
-        
+        total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1) 
+        #Maybe we should not use this to calculate the distances? He said to aggreate them on the bottom part of the technical tips website.
+        print(total_distances.sort_values(by='total_distance').head(5))
         return total_distances.sort_values(by='total_distance')
 
     def distribution_feature_distance(self, entry: Series) -> DataFrame:
