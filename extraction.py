@@ -96,8 +96,9 @@ def distance_barycenter_to_random(mesh: geometry.TriangleMesh, samples: int = SA
     '''
     barycenter = mesh.get_center()
     vertices = np.asarray(mesh.vertices)
+    sample_calc = int((samples)**(1.0/3.0))
 
-    sample_count = int((samples)**(1.0/3.0))
+    sample_count = sample_calc if sample_calc < vertices.shape[0] else vertices.shape[0]
 
     entries = []
 
