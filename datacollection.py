@@ -1,10 +1,10 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
 from os.path import exists, isfile
-from open3d import io, geometry
+
 from extraction import simple_features
 from preprocess import calculate_mesh_center, find_aabb_points, convert_to_trimesh, single_preprocess
-from util import compute_pca, locate_mesh_files
+from util import locate_mesh_files
 
 import trimesh as tm
 import numpy as np

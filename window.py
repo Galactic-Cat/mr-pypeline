@@ -146,9 +146,12 @@ class MainWindow():
         Args:
             path (str): Path from which to load the mesh file.
         '''
+        
         if not os.path.exists(path):
-            self.log.error('Try to load file at path %s which does not exist', path)
-            return 
+            path = basedir + path
+            if not os.path.exists(path):
+                self.log.error('Try to load file at path %s which does not exist', path)
+                return
         
         # Load and prepare the mesh and material
         mesh_material = rendering.Material()
@@ -203,7 +206,7 @@ class MainWindow():
 
     def display_search_results(self, results: DataFrame) -> None:
         self.results = results[['path']].head(self.SEARCH_SAMPLE)
-        items = [basedir + entry[1:] for entry in self.results['path']]
+        items = [entry[1:] for entry in self.results['path']]
         self._list_widget.set_items(items)
     
     def _on_list(self, new_val, is_dlb_click):
