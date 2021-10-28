@@ -74,7 +74,7 @@ class Search:
         distribution_distances = self.distribution_feature_distance(feature_vector)
         total_distances = concat([simple_distances, distribution_distances, self.raw_database['path']], axis=1)
         total_distances['name'] = total_distances['path'].apply(basename)
-        total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1) 
+        total_distances['total_distance'] = total_distances[['scalar_features'] + distribution_columns].apply(np.mean, axis = 1) 
         #Maybe we should not use this to calculate the distances? He said to aggreate them on the bottom part of the technical tips website.
         print(total_distances.sort_values(by='total_distance').head(5))
         return total_distances.sort_values(by='total_distance')
@@ -93,7 +93,7 @@ class Search:
         values = self.database[distribution_columns].apply(lambda c: c.apply(lambda a: emd(a, entry[c.name], distance_matrix)))
         
         # Calculate the euclidian distance for all distribution features per row
-        values['distribution_features'] = values.apply(lambda r: np.sqrt(np.sum(r ** 2)), axis=1)
+        #values['distribution_features'] = values.apply(lambda r: np.sqrt(np.sum(r ** 2)), axis=1)
 
         return values
 
@@ -160,5 +160,5 @@ def generate_distance_matrix(size: int, unit_distance: float = 1.0) -> np.ndarra
     return matrix
 
 if __name__ == '__main__':
-    s = Search('./data_out/database.csv')
+    s = Search('./data_out/database/database.csv')
     print(s.compare('./test_shapes/m100.off'))
