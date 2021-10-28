@@ -4,6 +4,7 @@ from os.path import basename, isfile
 from typing import Dict, Union
 from re import sub
 
+from annoy import AnnoyIndex
 import numpy as np
 from pandas import concat, DataFrame, read_csv, Series
 from extraction import simple_features
@@ -16,6 +17,7 @@ scalar_columns = ['surface_area', 'compactness', 'aabb_volume', 'diameter', 'ecc
 distribution_columns = ['A3', 'D1', 'D2', 'D3', 'D4']
 
 class Search:
+    approximated_nearest_neighbours: AnnoyIndex = None
     averages: Series = None
     database: DataFrame = None
     raw_database: DataFrame = None
@@ -136,6 +138,15 @@ class Search:
 
         return concat([scalars, distributions])
 
+    def prepare_nearest_neighbours(self, trees: int = 7) -> None:
+        '''Prepares a NN forest for quick search
+
+        Args:
+            trees (int, optional): The number of trees to generated. Defaults to 7.
+        '''
+        self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * 20)
+        self.database[scalar_columns + distribution_columns].apply(feature_vector)
+
     def standardize_database(self) -> None:
         '''Standardizes the loaded database's feature values'''
         # Standardize the scalar features
@@ -165,6 +176,17 @@ def generate_distance_matrix(size: int, unit_distance: float = 1.0) -> np.ndarra
             matrix[i,j] = matrix[j,i] = abs(i - j) * unit_distance
 
     return matrix
+
+def create_feature_vector(row: Series) -> np.ndarray:
+    '''Turns a database row into a numpy array
+
+    Args:
+        row (Series): The row to transform
+
+    Returns:
+        np.ndarray: The created vector
+    '''
+    return np.concatenate([row[scalar_columns] + row['A3'] + row['D1'] + row['D2'] + row['D3'] + row['D4']])
 
 if __name__ == '__main__':
     s = Search('./data_out/database.csv')
