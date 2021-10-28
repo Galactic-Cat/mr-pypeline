@@ -231,8 +231,8 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     entry.update({
         'aabb_max': aabb_max,
         'aabb_min': aabb_min,
-        'face_count': len(mesh.faces.shape[0]),
-        'vertex_count': len(mesh.vertices.shape[0])
+        'face_count': mesh.faces.shape[0],
+        'vertex_count': mesh.vertices.shape[0]
     })
     entry.update(features)
 
