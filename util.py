@@ -1,12 +1,10 @@
 '''Utility functions'''
-import ast
+
 from typing import Iterable, Tuple
 from os import listdir
 from os.path import isfile, isdir
-from open3d import geometry
-import trimesh as tm
 
-import pandas as pd
+import trimesh as tm
 import numpy as np
 
 def fix_mesh(mesh: tm.base.Trimesh) -> tm.base.Trimesh:
@@ -50,46 +48,6 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
 
     return eigen_values, eigen_vectors
 
-
-def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.array, np.array]:
-    '''Computes the eigenvalues and eigenvectors of a mesh
-
-    Args:
-        mesh (geometry.TriangleMesh): The mesh to compute the eigenvalues for
-
-    Returns:
-        Tuple[np.array, np.array]: A 4-tuple containing the eigenvectors on respectively the x, y, and z axis, and the eigenvalues
-    '''
-    vertex_count = len(mesh.vertices)
-
-    x_coords = []
-    y_coords = []
-    z_coords = []
-
-    for row in np.asarray(mesh.vertices):
-        x_coords.append(row[0])
-        y_coords.append(row[1])
-        z_coords.append(row[2])
-
-    #Fill in matrix with coordinate points
-    A = np.zeros((3, vertex_count), dtype=float)
-    A[0] = np.asarray(x_coords)
-    A[1] = np.asarray(y_coords)
-    A[2] = np.asarray(z_coords)
-
-    #Calculate covariance matrix
-    A_cov = np.cov(A)
-
-    #Calculate eigens
-    eigenvalues, eigenvectors = np.linalg.eig(A_cov)
-
-    eigenvalues, eigenvectors = sort_eigen_vectors(eigenvalues, eigenvectors)
-    
-    x_axis = eigenvectors[0]
-    y_axis = eigenvectors[1]
-    z_axis = np.cross(eigenvectors[0], eigenvectors[1])
-    
-    return x_axis, y_axis, z_axis, eigenvalues
 
 def grouped(iterable: Iterable, count: int) -> Tuple[Iterable]:
     '''Returns the iterable zipped into groups of a specified count

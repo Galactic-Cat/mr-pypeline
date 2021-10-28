@@ -1,10 +1,10 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
 from os import mkdir
-from os.path import basename, exists, isfile, dirname
+from os.path import basename, exists, isfile
 from re import search, split
 from typing import Dict
-from shutil import copy2
+
 import trimesh as tm
 
 import numpy as np

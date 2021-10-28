@@ -1,15 +1,15 @@
 '''Module for extracting features from 3D meshes'''
 # TODO: Some of the distribution feature extraction is underperforming and should be refactored
 from logging import getLogger
-from math import pi, sqrt
-import math
+from math import pi, sqrt, isnan
+import matplotlib.pyplot as plt
 from typing import Dict, List, Union
+from util import calculate_mesh_center
 
 import numpy as np
-#from open3d import geometry, utility
 import matplotlib.pyplot as plt
 import trimesh as tm
-from util import calculate_mesh_center
+import matplotlib.pyplot as plt
 
 log = getLogger('features')
 SAMPLE_SIZE = 100
@@ -55,7 +55,7 @@ def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[
                 angle = np.arccos(cos_angle)
                 # This normalizes the angles to values between 0 - 1, facilitates histogram creation.
                 f_angle = np.degrees(angle)/360
-                if math.isnan(f_angle) is True:
+                if isnan(f_angle) is True:
                     print(f"Cos angle:{cos_angle}, v_i: {v_i}, v_j:{v_j}, v_k:{v_k}")
                     continue
                 entries.append(f_angle)    
