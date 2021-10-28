@@ -1,22 +1,22 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
-from os import listdir, mkdir
-from os.path import basename, exists, isfile, isdir
+from os import mkdir
+from os.path import basename, exists, isfile, dirname
 from re import search, split
 from typing import Dict
+from shutil import copy2
 from open3d import geometry, io, utility
-from extraction import extract_all_features, simple_features
-from util import compute_pca, locate_mesh_files
 
 import numpy as np
 import pandas as pd
 
+from extraction import extract_all_features
+from util import fix_mesh, locate_mesh_files, convert_to_trimesh, compute_pca
 
 log = getLogger('preprocess')
-SIZE_PARAM = 3500 # Check which value we want to use.
+SIZE_PARAM = 2500 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
-
 
 def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     current_mesh = current_mesh.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
@@ -24,9 +24,7 @@ def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
 def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     current_mesh = current_mesh.subdivide_midpoint()
-
     face_count = len(current_mesh.triangles)
-
     not_ready = True
 
     while not_ready:
@@ -42,16 +40,13 @@ def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     return current_mesh
 
 def find_aabb_points (current_mesh: geometry.TriangleMesh) -> tuple():
-
     aabb = current_mesh.get_axis_aligned_bounding_box()
-
     aabb_min = aabb.get_min_bound()
     aabb_max = aabb.get_max_bound()
 
     return (aabb_min, aabb_max)
 
 def acceptable_size(face_count: int) -> bool:
-
     if face_count <= SIZE_PARAM and face_count > SIZE_MIN:
         return True
     
@@ -108,13 +103,12 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         label = None
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
-        log.debug('Face: (%d) and Vertex (%d)', face_count, vertex_count)
 
         # Find category if relevant
         if labels is not None:
             fnm = search(r'\d+', basename(file))
         
-        # DATA ENTRY: Label 
+            # DATA ENTRY: Label 
             if fnm is not None and fnm[0] in labels:
                 label = labels[fnm[0]]
                 log.debug('Labeled mesh %s as %s', basename(file), label)
@@ -124,36 +118,54 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
             if face_count > SIZE_MAX:
                 current_mesh = sub_sample(current_mesh)
+                
                 log.debug("Decimated shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                             file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
-                
-            elif face_count < SIZE_MIN:
-                
+            elif face_count < SIZE_MIN:             
                 current_mesh = super_sample(current_mesh)
+                
                 log.debug("Supersampled shape %s, previously (%d) faces and (%d) vertices, currently (%d) faces and (%d) vertices", 
                            file, face_count, vertex_count, len(current_mesh.triangles), len(current_mesh.vertices))
+
+        #verify closed mesh
+        current_mesh = make_watertight(current_mesh)
+        # Step 4: Normalize
+        current_mesh = normalize_mesh(current_mesh)
 
         # Step 3: Get aabb points
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
-        # Step 4: Normalize
-        current_mesh = normalize_mesh(current_mesh)
-
         # Step 5: Extract Features and save them inside the database.
-
         features = extract_all_features(current_mesh)
 
-        # DATA ENTRY :Face and Vertex Count 
+        # DATA ENTRY: Face and Vertex Count 
         face_count = len(current_mesh.triangles)
         vertex_count = len(current_mesh.vertices)
 
-        # DATA ENTRY: Mesh path
-        current_mesh_path = output_path + '/' + basename(file)
+        # Create new
+        mesh_name  = basename(file)[:-4]
+        extended_output_path  = './' + output_path + '/' + mesh_name + '/'
+
+        if not exists (extended_output_path):
+            mkdir(extended_output_path)
+
+        current_mesh_path = extended_output_path + basename(file)
         io.write_triangle_mesh(current_mesh_path, current_mesh)
 
-        entry = {'path': current_mesh_path, 'label': label, 
-                    'face_count': face_count, 'vertex_count': vertex_count} 
+        #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
+        thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
+        copy2(thumb_nail, extended_output_path)
+
+        entry = {
+            'aabb_max': aabb_max,
+            'aabb_min': aabb_min,
+            'label': label,
+            'face_count': face_count,
+            'path': current_mesh_path,
+            'vertex_count': vertex_count
+        } 
+
         if not entry:
             log.error('Shape at %s could not be converted to a dictionary, excluded from database.')
             continue
@@ -164,9 +176,63 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     # This will be the database we can load from.
     dataframe = pd.DataFrame(preprocessed_files)
-    dataframe.to_csv(output_path + '/df.csv')
+    dataframe.to_csv(output_path + '/database.csv', sep=',', index=False)
+    log.info('File data saved to "%s"', output_path + '/database.csv')
 
-    return
+def single_preprocess(file_path: str, classification_path: str = None) -> Dict[str, str]:
+    '''Preprocesses a single file and returns the database entry
+
+    Args:
+        file_path (str): The path to the file to preprocess
+        classification_path (str, optional): The file to the classification file. Defaults to None.
+
+    Returns:
+        Dict[str, str]: A map from feature and datapoint names to their values
+    '''
+    # Load in the mesh
+    if not isfile(file_path):
+        log.critical('Input path "%s" not valid', file_path)
+        return None
+
+    mesh = io.read_triangle_mesh(file_path)
+    
+    if mesh.is_empty():
+        log.critical('Failed to read triangle mesh from file "%s"', file_path)
+        return None
+
+    # Create a dictionary to store features
+    entry = {'path': file_path}
+    labels = None
+
+    # Retrieve labels if available
+    if classification_path is not None and isfile(classification_path):
+        labels = get_labels(classification_path)
+
+    # Assign label if possible
+    if labels is not None:
+        fnm = search(r'\d+', basename(file_path))
+
+        if fnm is not None and fnm[0] in labels:
+            entry['label'] = labels[fnm[0]]
+            log.debug('Labeled mesh %s as %s', basename(file_path), entry['label'])
+    
+    # Fix and normalize the mesh, and get the features
+    mesh = make_watertight(mesh) 
+    mesh = normalize_mesh(mesh)
+    aabb_min, aabb_max = find_aabb_points(mesh)
+    features = extract_all_features(mesh)
+
+    # Create the final entry
+    entry.update({
+        'aabb_max': aabb_max,
+        'aabb_min': aabb_min,
+        'face_count': len(mesh.triangles),
+        'vertex_count': len(mesh.vertices)
+    })
+    entry.update(features)
+
+    # Return the created entry
+    return entry
 
 def get_labels(path: str) -> Dict[str, str]:
     '''Retrieves the labels from a relevant cla file
@@ -263,15 +329,12 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
+
     x_axis, y_axis, z_axis, _ = compute_pca(mesh)
     centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
 
     vertices = []
-    # R = np.stack([x_axis, y_axis ,z_axis])
-    # # print(R.shape)
-    # mesh = mesh.rotate(R,center = centroid)
 
-    # return mesh
     for vertex in np.asarray(mesh.vertices):
 
         coords =  vertex - centroid
@@ -300,7 +363,7 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''
     aabb = mesh.get_axis_aligned_bounding_box()
     max_bound = aabb.get_max_bound()
-    mesh_center = mesh.get_center()
+    mesh_center = calculate_mesh_center(mesh)
     min_bound = aabb.get_min_bound()
 
     diff = abs(max_bound - min_bound)
@@ -314,6 +377,41 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     return mesh.scale(scale_factor, mesh_center)
 
+def make_watertight(mesh) -> geometry.TriangleMesh:
+    '''Attempts to make a mesh watertight
+
+    Args:
+        mesh (geometry.TriangleMesh): The mesh to make watertight
+
+    Returns:
+        geometry.TriangleMesh: The closed mesh
+    '''
+
+    #Convert mesh to tri mesh
+    if type(mesh) is geometry.TriangleMesh:
+        mesh = convert_to_trimesh(mesh)
+
+    if not mesh.is_watertight:
+        mesh = fix_mesh(mesh)
+        log.error(f'Non-watertightness identified and fix attempted, success: {mesh.is_watertight}')
+
+    return mesh.as_open3d
+
+def translate_and_align(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+    
+    mesh = convert_to_trimesh(mesh)
+    transformation = mesh.principal_inertia_transform
+    mesh.apply_transform(transformation)
+
+    return mesh.as_open3d
+
+def calculate_mesh_center(mesh: geometry.TriangleMesh):
+    mesh = convert_to_trimesh(mesh)
+
+    if mesh.is_watertight:
+        return mesh.center_mass
+
+    return mesh.centroid
 
 def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''Function that calls every necessary normalization step.
@@ -327,20 +425,21 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
     mesh_center = mesh.get_center()
 
-    # STEP 1: Translate
-
     mesh = mesh.translate(-mesh_center)
-
-    # STEP 2: Align
 
     mesh = pose_alignment(mesh)
 
     # STEP 3: Flip test
-
     mesh = flip_test(mesh)
 
     # STEP 4: Scale
-
     mesh = scale_mesh(mesh)
 
     return mesh
+
+
+if __name__ == '__main__':
+    mesh = io.read_triangle_mesh('./test_shapes/m100.off')
+    mesh = make_watertight(mesh)
+    mesh = normalize_mesh(mesh)
+    io.write_triangle_mesh('./test_shapes/pre.off',mesh)

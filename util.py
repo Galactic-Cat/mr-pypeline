@@ -1,10 +1,17 @@
 '''Utility functions'''
+import ast
 from typing import Iterable, Tuple
 from os import listdir
 from os.path import isfile, isdir
 from open3d import geometry
 
+import pandas as pd
 import numpy as np
+import trimesh
+
+def fix_mesh(mesh: trimesh.base.Trimesh) -> trimesh.base.Trimesh:
+    trimesh.repair.fill_holes(mesh)
+    return mesh
 
 
 def locate_mesh_files(input_path: str):
@@ -35,6 +42,13 @@ def sort_eigen_vectors(eigen_values: np.array, eigen_vectors: np.array):
     eigen_vectors = np.asarray(eigen_vectors)
 
     return eigen_values, eigen_vectors
+
+def convert_to_trimesh(mesh: geometry.TriangleMesh) -> trimesh.base.Trimesh:
+    
+    vertices = np.asarray(mesh.vertices)
+    faces = np.asarray(mesh.triangles)
+    
+    return trimesh.base.Trimesh(vertices, faces)
 
 def compute_pca(mesh: geometry.TriangleMesh) -> Tuple[np.array, np.array, np.array, np.array]:
     '''Computes the eigenvalues and eigenvectors of a mesh

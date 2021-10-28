@@ -1,18 +1,31 @@
 '''Module for preprocessing the off and ply files'''
 from logging import getLogger
-from os import listdir
-from os.path import exists, isfile, isdir
+from os.path import exists, isfile
 from open3d import io, geometry
-from preprocess import find_aabb_points
-from util import compute_pca
+from extraction import simple_features
+from preprocess import find_aabb_points, convert_to_trimesh, single_preprocess
+from util import compute_pca, locate_mesh_files
+
 import numpy as np
+import json
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
+import ast
+
 
 log = getLogger('data_collection')
 
 dataframe = None
+
+def verify_basic_features(output_path) -> None:
+    mesh = io.read_triangle_mesh("output\preprocess\m741\m741.off")
+    entry = simple_features(mesh)
+    print(entry)
+
+    mesh = io.read_triangle_mesh("output\preprocess\m517\m517.off")
+    entry = simple_features(mesh)
+    print(entry)
+    return
 
 def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
     ''' Function that will visualize the collected data given a .csv file
@@ -25,7 +38,11 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
     if dataframe is None:
         log.error('Dataframe has not been instantiated.')
         return
-    
+
+    # if feature_name == 'face_count' or feature_name == 'vertex_count':
+    #     data_threshold = np.percentile(data, 85)
+    #     data = data[(data <= data_threshold)]
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(data, bins = bins_, weights=np.zeros_like(data) + 100. / data.size)
@@ -35,6 +52,46 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
     ax.legend
     plt.savefig(output_path + "/"+ feature_name + '_hist.png')
     plt.close()
+
+    return
+
+def verify_translation(current_mesh: geometry.TriangleMesh) -> float:
+
+    centroid = current_mesh.get_center()
+    norm = np.linalg.norm(centroid)
+    return norm
+
+
+def display_class_distributions(input_path:str, output_path: str) -> None:
+    
+    df = pd.read_csv(input_path)
+    df = df.drop(columns = ['aabb_max','aabb_min','path', 'face_count', 'vertex_count', 'surface_area', 'aabb_volume', 'compactness', 'diameter', 'eccentricity'])
+    df = df.dropna()
+    
+    labels = df['label'].dropna().unique()
+
+    for c_label in labels:
+        sub_set = df.loc[df['label']==c_label]
+        #sub_set = df.drop(columns = 'label')
+
+        for i, column in enumerate(sub_set.columns):
+            if column == 'label':
+                continue
+            entries = sub_set[column]
+            for entry in entries:
+                entry = ast.literal_eval(entry)
+                bins = [i for i in range(0,len(entry))]
+                plt.plot(bins, entry)
+
+            plt.tick_params(
+                axis='x',
+                which='both',      
+                bottom=False,      
+                top=False,         
+                labelbottom=False) 
+            plt.title(f'{column} Distribution for class: {c_label}')
+            plt.savefig(output_path + f'/{c_label}_{column}_dist.png')
+            plt.close()
 
     return
 
@@ -71,9 +128,8 @@ def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: geometry.TriangleMesh):
-    x, _, _, _ = compute_pca(current_mesh)
-    return abs(x[0])
-
+    x_axis, y_axis, z_axis, _ = compute_pca(current_mesh)
+    return abs(x_axis[0])
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -82,56 +138,50 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         input (str): The input file/folder
         output (str): The output folder
     '''
+    
     # Check if the input is valid
     if not exists(input_path):
         log.critical('Input path "%s" does not exist', input_path)
         return
-    
-    # Setup input search
-    folders = []
-    files = []
-    
-    files.append(input_path) if isfile(input_path) else folders.append(input_path)
 
-    # DFS the filesystem for .off and .ply files
-    while len(folders) > 0:
-        current_folder = folders.pop()
+    if isfile(input_path):
+        display_class_distributions(input_path, output_path)
 
-        for item in listdir(current_folder):
-            item_path = current_folder + '/' + item
-
-            if isdir(item_path):
-                folders.append(item_path)
-            elif isfile(item_path) and item_path[-4:] in ['.ply', '.off']:
-                files.append(item_path)
-    
-    log.debug('Found %d files to preprocess', len(files))
-
-    files_information = []
-
-    for file in files:
-        if file is None or not exists(file):
-            log.error("The provided filepath %s does not exists", file)
-            continue
+    else:
         
-        current_mesh = io.read_triangle_mesh(file)
-        aabb_size = verify_scaling(current_mesh)
-        x_coordinate = verify_rotation(current_mesh)
-        shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
-                                "aabb_size": aabb_size, "x_coord": x_coordinate}
+        files = locate_mesh_files(input_path)
+        
+        log.debug('Found %d files to preprocess', len(files))
 
-        files_information.append(shape_information)
+        files_information = []
 
-    global dataframe 
-    
-    dataframe = pd.DataFrame.from_dict(files_information)
-# (data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15)
-    visualize_data(data = dataframe['face_count'].to_numpy(), title = 'Distribution of Face counts', feature_name = 'face_count', output_path = output_path, xlabel = 'Face Count')
-    visualize_data(data = dataframe['vertex_count'].to_numpy(), title = 'Distribution of Vertex counts' , feature_name =  'vertex_count', output_path = output_path, xlabel = 'Vertex Count')
-    visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
-    visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
-    calculate_features(output_path)
+        for file in files:
+            if file is None or not exists(file):
+                log.error("The provided filepath %s does not exists", file)
+                continue
+            
+            current_mesh = io.read_triangle_mesh(file)
+            aabb_size = verify_scaling(current_mesh)
+            x_coordinate = verify_rotation(current_mesh)
+            distance_from_center = verify_translation(current_mesh)
+            shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
+                                    "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate}
+
+            files_information.append(shape_information)
+
+        global dataframe 
+        
+        dataframe = pd.DataFrame.from_dict(files_information)
+        visualize_data(data = dataframe['face_count'].to_numpy(), title = 'Distribution of Face counts', feature_name = 'face_count', output_path = output_path, xlabel = 'Face Count')
+        visualize_data(data = dataframe['vertex_count'].to_numpy(), title = 'Distribution of Vertex counts' , feature_name =  'vertex_count', output_path = output_path, xlabel = 'Vertex Count')
+        visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
+        visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
+        visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
+        calculate_features(output_path)
+        verify_basic_features(output_path)
 
     return
 
-#TODO COLLECT NORMALS FOR THE BARY CENTER BEFORE AND AFTER AND CHECK THE HISTOGRAMS
+if __name__ == '__main__':
+     mesh = io.read_triangle_mesh('./test_shapes/m100.off')
+     verify_rotation(mesh)
