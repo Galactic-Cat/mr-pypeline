@@ -136,6 +136,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
         #verify closed mesh
         current_mesh = make_watertight(current_mesh)
+        if not current_mesh.is_watertight:
+            continue
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
@@ -227,7 +229,7 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     mesh = make_watertight(mesh) 
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
-    features = extract_all_features(mesh.as_open3d) #TODO: STILL FIX EXTRACT ALL FEATURES!!!!!!!!!!!!!!!!!!!!!!!
+    features = extract_all_features(mesh)
 
     # Create the final entry
     entry.update({

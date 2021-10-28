@@ -203,8 +203,10 @@ def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE):
 
                     # Avoid doing calcs by hand :)
                     tetrahedron = tm.Trimesh(vertices = tetra_vertices, faces = tetra_faces)
+                    
+                    tetrahedron.fix_normals()
 
-                    volume = tetrahedron.as_open3d.get_volume()
+                    volume = tetrahedron.mass_properties['volume'] 
                     cr_volume = volume **(1./3)
                     entries.append(cr_volume)
 
