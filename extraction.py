@@ -6,15 +6,15 @@ import math
 from typing import Dict, List, Union
 
 import numpy as np
-from open3d import geometry, utility
+#from open3d import geometry, utility
 import matplotlib.pyplot as plt
-
-from util import convert_to_trimesh
+import trimesh as tm
+from util import calculate_mesh_center
 
 log = getLogger('features')
-SAMPLE_SIZE = 1000
+SAMPLE_SIZE = 100
 
-def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
+def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates angle between 3 random vertices.
     
     Args:
@@ -24,8 +24,8 @@ def angle_between_randoms(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZ
     Returns:
         List[float]: The list of angles between 3 random vertices
     '''
-    vertices = np.asarray(mesh.vertices)
-    vertex_count = vertices.shape[0] - (vertices.shape[0] % 3)
+    vertices = mesh.vertices
+
     entries = []
 
     sample_count = int((samples)**(1.0/3.0))
@@ -84,7 +84,7 @@ def distance_between_points(vector_1: np.array, vector_2: np.array) -> float:
 
     return dist
 
-def distance_barycenter_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
+def distance_barycenter_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates distance from barycenter to random vertices
     
     Args:
@@ -94,7 +94,7 @@ def distance_barycenter_to_random(mesh: geometry.TriangleMesh, samples: int = SA
     Returns:
         List[float]: The distances between the barycenter of the mesh and random vertices
     '''
-    barycenter = mesh.get_center()
+    barycenter = calculate_mesh_center(mesh)
     vertices = np.asarray(mesh.vertices)
     sample_calc = int((samples)**(1.0/3.0))
 
@@ -110,7 +110,7 @@ def distance_barycenter_to_random(mesh: geometry.TriangleMesh, samples: int = SA
     
     return entries
 
-def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
+def distance_random_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates distance from a random vertex to another random vertex.
     
     Args:
@@ -120,7 +120,7 @@ def distance_random_to_random(mesh: geometry.TriangleMesh, samples: int = SAMPLE
     Returns:
         List[float]: The distance between 2 random vertices
     '''
-    vertices = np.asarray(mesh.vertices)
+    vertices = mesh.vertices
 
     sample_count = int((samples)**(1.0/2.0))
 
@@ -168,9 +168,9 @@ def visualize_histogram(counts: np.array, bins: np.array, title: str, output_pat
 
     return
 
-def volume_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE):
+def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE):
     
-    vertices = np.asarray(mesh.vertices)
+    vertices = mesh.vertices
     sample_count = int((samples)**(1.0/3.0))
 
     entries = []
@@ -197,20 +197,20 @@ def volume_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE
                     if l_index == i_index or l_index == j_index or l_index == k_index:
                         continue
                     
-                    tetra_vertices = utility.Vector3dVector(np.asarray([v_i,v_j,v_k,v_l]))
+                    tetra_vertices = np.asarray([v_i,v_j,v_k,v_l])
 
-                    tetra_faces = utility.Vector3iVector(np.asarray([[0,3,1], [2,3,0], [3,2,1], [1,2,0]]))
+                    tetra_faces =np.asarray([[0,3,1], [2,3,0], [3,2,1], [1,2,0]])
 
                     # Avoid doing calcs by hand :)
-                    tetrahedron = geometry.TriangleMesh(tetra_vertices, tetra_faces)
+                    tetrahedron = tm.Trimesh(vertices = tetra_vertices, faces = tetra_faces)
 
-                    volume = tetrahedron.get_volume()
+                    volume = tetrahedron.as_open3d.get_volume()
                     cr_volume = volume **(1./3)
                     entries.append(cr_volume)
 
     return entries
 
-def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_SIZE) -> List[float]:
+def area_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     """Calculates area of a triangle made from 3 random vertices.
     
     Args:
@@ -221,7 +221,7 @@ def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_S
         List[float]: The area created by a triangle of three random vertices.
     """
 
-    vertices = np.asarray(mesh.vertices)
+    vertices = mesh.vertices
     sample_count = int((samples*100)**(1.0/3.0))
 
     entries = []
@@ -259,7 +259,7 @@ def area_of_random_vertices(mesh: geometry.TriangleMesh, samples: int = SAMPLE_S
     return entries
 
 #TODO EDIT THIS SO I CAN USE TRI MESH COMPUTATIONS
-def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
+def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
     '''Extract some simple features from a 3D mesh
 
     Args:
@@ -270,20 +270,18 @@ def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
     '''
     values = {}
 
-    tri_mesh = convert_to_trimesh(mesh)
-
     # Get the surface area
-    surface_area = tri_mesh.area
+    surface_area = mesh.area
     values['surface_area'] = surface_area
 
     # Get compactness
-    if tri_mesh.is_watertight:
-        values['compactness'] = (surface_area ** 3) / (36 * pi * (tri_mesh.mass_properties['volume'] ** 2))
+    if mesh.is_watertight:
+        values['compactness'] = (surface_area ** 3) / (36 * pi * (mesh.mass_properties['volume'] ** 2))
     else:
         values['compactness'] = None
         log.error("Cannot find compactness of a non-watertight mesh")
     # Get AABB volume
-    values['aabb_volume'] = mesh.get_axis_aligned_bounding_box().volume()
+    values['aabb_volume'] = mesh.as_open3d.get_axis_aligned_bounding_box().volume()
 
     # Get diameter
     # This is using a bruteforce method, but relying mostly on numpy's C code, so it takes ~0.5 seconds for 2000 vertices
@@ -297,12 +295,12 @@ def simple_features(mesh: geometry.TriangleMesh) -> Dict[str, float]:
     values['diameter'] = np.sqrt(np.max(squared_distances))
 
     # Get eccentricity
-    eigenvalues = tri_mesh.principal_inertia_components
+    eigenvalues = mesh.principal_inertia_components
     values['eccentricity'] = abs(max(eigenvalues)) / abs(min(eigenvalues))
     
     return values
 
-def distribution_features(mesh: geometry.TriangleMesh) -> Dict[str, np.array]:
+def distribution_features(mesh: tm.Trimesh) -> Dict[str, np.array]:
 
     dist = {}
 
@@ -328,7 +326,7 @@ def distribution_features(mesh: geometry.TriangleMesh) -> Dict[str, np.array]:
 
     return dist
 
-def extract_all_features(mesh: geometry.TriangleMesh) -> Dict[str, Union[float, np.ndarray]]:
+def extract_all_features(mesh: tm.Trimesh) -> Dict[str, Union[float, np.ndarray]]:
     '''Extracts simple and shape property features from a mesh
 
     Args:

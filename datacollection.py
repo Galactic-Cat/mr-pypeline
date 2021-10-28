@@ -3,9 +3,10 @@ from logging import getLogger
 from os.path import exists, isfile
 from open3d import io, geometry
 from extraction import simple_features
-from preprocess import find_aabb_points, convert_to_trimesh, single_preprocess
+from preprocess import calculate_mesh_center, find_aabb_points, convert_to_trimesh, single_preprocess
 from util import compute_pca, locate_mesh_files
 
+import trimesh as tm
 import numpy as np
 import json
 import pandas as pd
@@ -17,15 +18,15 @@ log = getLogger('data_collection')
 
 dataframe = None
 
-def verify_basic_features(output_path) -> None:
-    mesh = io.read_triangle_mesh("output\preprocess\m741\m741.off")
-    entry = simple_features(mesh)
-    print(entry)
+# def verify_basic_features(output_path) -> None:
+#     mesh = io.read_triangle_mesh("output\preprocess\m741\m741.off")
+#     entry = simple_features(mesh)
+#     print(entry)
 
-    mesh = io.read_triangle_mesh("output\preprocess\m517\m517.off")
-    entry = simple_features(mesh)
-    print(entry)
-    return
+#     mesh = io.read_triangle_mesh("output\preprocess\m517\m517.off")
+#     entry = simple_features(mesh)
+#     print(entry)
+#     return
 
 def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
     ''' Function that will visualize the collected data given a .csv file
@@ -55,10 +56,10 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
 
     return
 
-def verify_translation(current_mesh: geometry.TriangleMesh) -> float:
+def verify_translation(current_mesh: tm.Trimesh) -> float:
 
-    centroid = current_mesh.get_center()
-    norm = np.linalg.norm(centroid)
+    centroid = calculate_mesh_center(current_mesh)
+    norm = round(np.linalg.norm(centroid),3)
     return norm
 
 
@@ -122,14 +123,14 @@ def calculate_features(output_path: str) -> None:
 
     return
 
-def verify_scaling(current_mesh: geometry.TriangleMesh) -> float:
+def verify_scaling(current_mesh: tm.Trimesh) -> float:
 
     min, max = find_aabb_points(current_mesh)
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
-def verify_rotation(current_mesh: geometry.TriangleMesh):
-    x_axis, y_axis, z_axis, _ = compute_pca(current_mesh)
-    return abs(x_axis[0])
+def verify_rotation(current_mesh: tm.Trimesh) -> float:
+    pca = current_mesh.principal_inertia_vectors
+    return abs(pca[0][0])
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -160,11 +161,11 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
                 log.error("The provided filepath %s does not exists", file)
                 continue
             
-            current_mesh = io.read_triangle_mesh(file)
+            current_mesh = tm.load(file)
             aabb_size = verify_scaling(current_mesh)
             x_coordinate = verify_rotation(current_mesh)
             distance_from_center = verify_translation(current_mesh)
-            shape_information = {"face_count" : len(current_mesh.triangles), "vertex_count" : len(current_mesh.vertices), 
+            shape_information = {"face_count" :current_mesh.faces.shape[0], "vertex_count" : current_mesh.vertices.shape[0], 
                                     "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate}
 
             files_information.append(shape_information)
@@ -178,10 +179,12 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
         visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
         calculate_features(output_path)
-        verify_basic_features(output_path)
+        #verify_basic_features(output_path)
 
     return
 
-if __name__ == '__main__':
-     mesh = io.read_triangle_mesh('./test_shapes/m100.off')
-     verify_rotation(mesh)
+# if __name__ == '__main__':
+#      mesh = tm.load('./test_shapes/m100/m100.off')
+#      print(verify_rotation(mesh))
+#      print(verify_translation(mesh))
+#      print(verify_scaling(mesh))

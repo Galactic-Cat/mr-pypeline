@@ -5,25 +5,30 @@ from os.path import basename, exists, isfile, dirname
 from re import search, split
 from typing import Dict
 from shutil import copy2
-from open3d import geometry, io, utility
+import trimesh as tm
 
 import numpy as np
 import pandas as pd
 
 from extraction import extract_all_features
-from util import fix_mesh, locate_mesh_files, convert_to_trimesh, compute_pca
+from util import locate_mesh_files, calculate_mesh_center
 
 log = getLogger('preprocess')
 SIZE_PARAM = 2500 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
-def sub_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    current_mesh = current_mesh.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
+convert_to_trimesh = lambda x: tm.Trimesh(np.asarray(x.vertices), np.asarray(x.triangles))
+
+def sub_sample(current_mesh: tm.Trimesh) -> tm.Trimesh:
+    current_mesh = current_mesh.as_open3d.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
+
+    current_mesh = convert_to_trimesh(current_mesh)
+
     return current_mesh
 
-def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    current_mesh = current_mesh.subdivide_midpoint()
+def super_sample(current_mesh: tm.Trimesh) -> tm.Trimesh:
+    current_mesh = current_mesh.as_open3d.subdivide_midpoint()
     face_count = len(current_mesh.triangles)
     not_ready = True
 
@@ -37,12 +42,14 @@ def super_sample(current_mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
         face_count = len(current_mesh.triangles)
     
+    current_mesh = convert_to_trimesh(current_mesh)
+    
     return current_mesh
 
-def find_aabb_points (current_mesh: geometry.TriangleMesh) -> tuple():
-    aabb = current_mesh.get_axis_aligned_bounding_box()
-    aabb_min = aabb.get_min_bound()
-    aabb_max = aabb.get_max_bound()
+def find_aabb_points (current_mesh: tm.Trimesh) -> tuple():
+    bounds = current_mesh.bounds
+    aabb_min = bounds[0]
+    aabb_max = bounds[1]
 
     return (aabb_min, aabb_max)
 
@@ -93,16 +100,16 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     for file in files:
         log.debug('Preprocessing file: %s', file)
-        current_mesh = io.read_triangle_mesh(file)  
+        current_mesh = tm.load(file)  
 
-        if current_mesh.is_empty():
+        if current_mesh.is_empty:
             log.error('Mesh at %s could not be read.', file)
             continue
 
         # Step 1: Get Information
         label = None
-        face_count = len(current_mesh.triangles)
-        vertex_count = len(current_mesh.vertices)
+        face_count = current_mesh.faces.shape[0]
+        vertex_count = current_mesh.vertices.shape[0]
 
         # Find category if relevant
         if labels is not None:
@@ -140,8 +147,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         features = extract_all_features(current_mesh)
 
         # DATA ENTRY: Face and Vertex Count 
-        face_count = len(current_mesh.triangles)
-        vertex_count = len(current_mesh.vertices)
+        face_count = current_mesh.faces.shape[0]
+        vertex_count = current_mesh.vertices.shape[0]
 
         # Create new
         mesh_name  = basename(file)[:-4]
@@ -151,19 +158,19 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
             mkdir(extended_output_path)
 
         current_mesh_path = extended_output_path + basename(file)
-        io.write_triangle_mesh(current_mesh_path, current_mesh)
+        tm.exchange.export.export_mesh(current_mesh, current_mesh_path,'off')
 
-        #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
-        thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
-        copy2(thumb_nail, extended_output_path)
+        # #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
+        # thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
+        # copy2(thumb_nail, extended_output_path)
 
         entry = {
             'aabb_max': aabb_max,
             'aabb_min': aabb_min,
             'label': label,
             'face_count': face_count,
-            'path': current_mesh_path,
-            'vertex_count': vertex_count
+            'vertex_count': vertex_count,
+            'path': current_mesh_path
         } 
 
         if not entry:
@@ -194,9 +201,9 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
         log.critical('Input path "%s" not valid', file_path)
         return None
 
-    mesh = io.read_triangle_mesh(file_path)
+    mesh = tm.load(file_path)
     
-    if mesh.is_empty():
+    if mesh.is_empty:
         log.critical('Failed to read triangle mesh from file "%s"', file_path)
         return None
 
@@ -220,14 +227,14 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     mesh = make_watertight(mesh) 
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
-    features = extract_all_features(mesh)
+    features = extract_all_features(mesh.as_open3d) #TODO: STILL FIX EXTRACT ALL FEATURES!!!!!!!!!!!!!!!!!!!!!!!
 
     # Create the final entry
     entry.update({
         'aabb_max': aabb_max,
         'aabb_min': aabb_min,
-        'face_count': len(mesh.triangles),
-        'vertex_count': len(mesh.vertices)
+        'face_count': len(mesh.faces.shape[0]),
+        'vertex_count': len(mesh.vertices.shape[0])
     })
     entry.update(features)
 
@@ -278,7 +285,7 @@ def get_labels(path: str) -> Dict[str, str]:
     log.debug('Retrieved %d labels from "%s"', len(mapping), path)
     return mapping
 
-def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def flip_test(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that mirrors the mesh if necessary on the x,y or z axis.
 
     Args:
@@ -289,9 +296,9 @@ def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     '''
     f_sign = [0,0,0]
 
-    vertices =  np.asarray(mesh.vertices)
+    vertices =  mesh.vertices
 
-    for face in np.asarray(mesh.triangles):
+    for face in mesh.faces:
 
         vertex_total = np.zeros(3,dtype=float)
 
@@ -316,11 +323,11 @@ def flip_test(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     
     np_vertices = np.stack(updated_vertices)
 
-    mesh.vertices = utility.Vector3dVector(np_vertices)
+    mesh.vertices = np_vertices
 
     return mesh
 
-def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def pose_alignment(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that aligns the mesh to the xyz axis.
 
     Args:
@@ -330,8 +337,9 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The axis-aligned mesh
     '''
 
-    x_axis, y_axis, z_axis, _ = compute_pca(mesh)
-    centroid = mesh.get_center() # Maybe not needed anymore since we are already at 0
+    pca = mesh.principal_inertia_vectors
+    z_axis = np.cross(pca[0], pca[1])
+    centroid = calculate_mesh_center(mesh) # Maybe not needed anymore since we are already at 0
 
     vertices = []
 
@@ -339,8 +347,8 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
         coords =  vertex - centroid
 
-        x_coord = np.dot(coords, x_axis)
-        y_coord = np.dot(coords, y_axis)
+        x_coord = np.dot(coords, pca[0])
+        y_coord = np.dot(coords, pca[1])
         z_coord = np.dot(coords, z_axis)
 
         projected_vertex = np.asarray([x_coord, y_coord, z_coord])
@@ -348,11 +356,11 @@ def pose_alignment(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     
     np_vertices = np.stack(vertices)
 
-    mesh.vertices = utility.Vector3dVector(np_vertices)
+    mesh.vertices = np_vertices
 
     return mesh
 
-def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def scale_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that scales the mesh to fit into an unit cube.
 
     Args:
@@ -361,10 +369,9 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
     Returns:
         geometry.TriangleMesh: The scaled mesh
     '''
-    aabb = mesh.get_axis_aligned_bounding_box()
-    max_bound = aabb.get_max_bound()
+    
+    min_bound, max_bound = find_aabb_points(mesh)
     mesh_center = calculate_mesh_center(mesh)
-    min_bound = aabb.get_min_bound()
 
     diff = abs(max_bound - min_bound)
     max_dim = None
@@ -374,10 +381,15 @@ def scale_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
             max_dim = i
 
     scale_factor = 1 / diff[max_dim]
+    
+    transformation = np.zeros([4,4])
+    transformation[3,3] = 1
+    for i in range(0,3):
+        transformation[i,i] = scale_factor
 
-    return mesh.scale(scale_factor, mesh_center)
+    return mesh.apply_transform(transformation)
 
-def make_watertight(mesh) -> geometry.TriangleMesh:
+def make_watertight(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Attempts to make a mesh watertight
 
     Args:
@@ -387,33 +399,28 @@ def make_watertight(mesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The closed mesh
     '''
 
-    #Convert mesh to tri mesh
-    if type(mesh) is geometry.TriangleMesh:
-        mesh = convert_to_trimesh(mesh)
-
     if not mesh.is_watertight:
-        mesh = fix_mesh(mesh)
-        log.error(f'Non-watertightness identified and fix attempted, success: {mesh.is_watertight}')
+        success = tm.repair.fill_holes(mesh)
+        log.error(f'Non-watertightness identified and fix attempted, success: {success}')
 
-    return mesh.as_open3d
+    return mesh
 
-def translate_and_align(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
-    
-    mesh = convert_to_trimesh(mesh)
-    transformation = mesh.principal_inertia_transform
+def translate(mesh: tm.Trimesh) -> tm.Trimesh:
+    translation = calculate_mesh_center(mesh)
+
+    transformation = np.zeros([4,4])
+
+    for i in range(0,4):
+        transformation[i,i] = 1
+
+    for i in range(0,3):
+        transformation[i,3] = -translation[i]
+
     mesh.apply_transform(transformation)
 
-    return mesh.as_open3d
+    return mesh
 
-def calculate_mesh_center(mesh: geometry.TriangleMesh):
-    mesh = convert_to_trimesh(mesh)
-
-    if mesh.is_watertight:
-        return mesh.center_mass
-
-    return mesh.centroid
-
-def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
+def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that calls every necessary normalization step.
 
     Args:
@@ -423,9 +430,7 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
         geometry.TriangleMesh: The normalized mesh
     '''
 
-    mesh_center = mesh.get_center()
-
-    mesh = mesh.translate(-mesh_center)
+    mesh = translate(mesh)
 
     mesh = pose_alignment(mesh)
 
@@ -439,7 +444,4 @@ def normalize_mesh(mesh: geometry.TriangleMesh) -> geometry.TriangleMesh:
 
 
 if __name__ == '__main__':
-    mesh = io.read_triangle_mesh('./test_shapes/m100.off')
-    mesh = make_watertight(mesh)
-    mesh = normalize_mesh(mesh)
-    io.write_triangle_mesh('./test_shapes/pre.off',mesh)
+    preprocess("test_shapes", "test_shapes", None)
