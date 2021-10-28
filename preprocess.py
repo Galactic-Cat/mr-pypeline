@@ -162,10 +162,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         current_mesh_path = extended_output_path + basename(file)
         tm.exchange.export.export_mesh(current_mesh, current_mesh_path,'off')
 
-        # #For search visualization (we can use these images to display similar meshes, rather than some complicated UI feature)
-        # thumb_nail = dirname(file) + '/' + mesh_name + '_thumb.jpg'
-        # copy2(thumb_nail, extended_output_path)
-
         entry = {
             'aabb_max': aabb_max,
             'aabb_min': aabb_min,
