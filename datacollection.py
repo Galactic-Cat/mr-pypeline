@@ -3,12 +3,11 @@ from logging import getLogger
 from os.path import exists, isfile
 
 from extraction import simple_features
-from preprocess import calculate_mesh_center, find_aabb_points, convert_to_trimesh, single_preprocess
+from preprocess import calculate_mesh_center, find_aabb_points
 from util import locate_mesh_files
 
 import trimesh as tm
 import numpy as np
-import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import ast
@@ -18,15 +17,17 @@ log = getLogger('data_collection')
 
 dataframe = None
 
-# def verify_basic_features(output_path) -> None:
-#     mesh = io.read_triangle_mesh("output\preprocess\m741\m741.off")
-#     entry = simple_features(mesh)
-#     print(entry)
+def verify_basic_features() -> None:
+    mesh = tm.load("output/preprocess/360/360.off")
+    entry = simple_features(mesh)
+    print("Bearing information")
+    print(entry)
 
-#     mesh = io.read_triangle_mesh("output\preprocess\m517\m517.off")
-#     entry = simple_features(mesh)
-#     print(entry)
-#     return
+    mesh = tm.load("output/preprocess/22/22.off")
+    entry = simple_features(mesh)
+    print("Cup information:")
+    print(entry)
+    return
 
 def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
     ''' Function that will visualize the collected data given a .csv file
@@ -183,8 +184,5 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
-# if __name__ == '__main__':
-#      mesh = tm.load('./test_shapes/m100/m100.off')
-#      print(verify_rotation(mesh))
-#      print(verify_translation(mesh))
-#      print(verify_scaling(mesh))
+if __name__ == '__main__':
+     verify_basic_features()
