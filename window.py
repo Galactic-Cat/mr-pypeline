@@ -35,7 +35,7 @@ class MainWindow():
         '''
 
         self.window = gui.Application.instance.create_window("MR-pypeline", width, height)
-        self.search_engine = Search('./data_out/database/database.csv')
+        self.search_engine = Search('./output/preprocess/database.csv')
         self.results = None
 
         self.create_3D_scene()

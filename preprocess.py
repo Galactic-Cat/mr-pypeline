@@ -2,6 +2,7 @@
 from logging import getLogger
 from os import mkdir
 from os.path import basename, exists, isfile
+from posixpath import dirname
 from re import search, split
 from typing import Dict
 
@@ -14,7 +15,7 @@ from extraction import extract_all_features
 from util import locate_mesh_files, calculate_mesh_center
 
 log = getLogger('preprocess')
-SIZE_PARAM = 2500 # Check which value we want to use.
+SIZE_PARAM = 20000 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
@@ -95,8 +96,8 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     preprocessed_files = []
 
-    # Get label data
-    labels = get_labels(classification_path) if classification_path is not None else None
+    # # Get label data
+    # labels = get_labels(classification_path) if classification_path is not None else None
 
     for file in files:
         log.debug('Preprocessing file: %s', file)
@@ -107,18 +108,18 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
             continue
 
         # Step 1: Get Information
-        label = None
+        label = basename(dirname(file))
         face_count = current_mesh.faces.shape[0]
         vertex_count = current_mesh.vertices.shape[0]
 
-        # Find category if relevant
-        if labels is not None:
-            fnm = search(r'\d+', basename(file))
+        # # Find category if relevant
+        # if labels is not None:
+        #     fnm = search(r'\d+', basename(file))
         
-            # DATA ENTRY: Label 
-            if fnm is not None and fnm[0] in labels:
-                label = labels[fnm[0]]
-                log.debug('Labeled mesh %s as %s', basename(file), label)
+        #     # DATA ENTRY: Label 
+        #     if fnm is not None and fnm[0] in labels:
+        #         label = labels[fnm[0]]
+        #         log.debug('Labeled mesh %s as %s', basename(file), label)
 
         # Step 2: Supersample/Subsample
         if not acceptable_size(face_count):
@@ -209,9 +210,9 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     entry = {'path': file_path}
     labels = None
 
-    # Retrieve labels if available
-    if classification_path is not None and isfile(classification_path):
-        labels = get_labels(classification_path)
+    # # Retrieve labels if available
+    # if classification_path is not None and isfile(classification_path):
+    #     labels = get_labels(classification_path)
 
     # Assign label if possible
     if labels is not None:
@@ -238,50 +239,6 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
 
     # Return the created entry
     return entry
-
-def get_labels(path: str) -> Dict[str, str]:
-    '''Retrieves the labels from a relevant cla file
-
-    Args:
-        path (str): The path to the cla file
-
-    Returns:
-        Dict[str, str]: Mapping from filename to label
-    '''
-    mapping = dict()
-    
-    def getline(f):
-        l = f.readline()
-        return split(r'\s+', l.lower().strip()) if l != '' else None
-
-    with open(path, 'r') as f:
-        line = getline(f)
-
-        # Check first line
-        if line[0] != 'psb':
-            log.warning('Can not acquire labels from "%s", does not follow princeton specification')
-            return mapping
-
-        # Get category and file count
-        getline(f) # Discard second line
-        line = getline(f)
-        category = None
-
-        while line is not None:
-            if search(r'^([a-zA-Z]+|\-1)', line[0]) is not None:
-                category = line[0]
-
-            if category is None:
-                line = getline(f)
-                continue
-
-            if search(r'\d+', line[0]) is not None:
-                mapping[line[0]] = category
-
-            line = getline(f)
-
-    log.debug('Retrieved %d labels from "%s"', len(mapping), path)
-    return mapping
 
 def flip_test(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that mirrors the mesh if necessary on the x,y or z axis.
