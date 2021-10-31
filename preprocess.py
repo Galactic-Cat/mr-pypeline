@@ -7,7 +7,7 @@ from re import search, split
 from typing import Dict
 
 import trimesh as tm
-
+import pymeshfix
 import numpy as np
 import pandas as pd
 
@@ -137,8 +137,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
         #verify closed mesh
         current_mesh = make_watertight(current_mesh)
-        if not current_mesh.is_watertight:
-            continue
         # Step 4: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
@@ -356,7 +354,9 @@ def make_watertight(mesh: tm.Trimesh) -> tm.Trimesh:
 
     if not mesh.is_watertight:
         success = tm.repair.fill_holes(mesh)
-        log.error(f'Non-watertightness identified and fix attempted, success: {success}')
+        #vclean, fclean = pymeshfix.clean_from_arrays(mesh.vertices, mesh.faces)
+        #mesh = tm.Trimesh(vclean, fclean)
+        log.error(f'Non-watertightness identified and fix attempted, success: {mesh.is_watertight}')
 
     return mesh
 

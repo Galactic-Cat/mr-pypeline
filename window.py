@@ -21,7 +21,7 @@ class MainWindow():
     ACTION_CLEAR_MESH = 2
     MENU_SHOW_COMPARE = 11
 
-    SEARCH_SAMPLE = 8
+    SEARCH_SAMPLE = 5
 
 
     log = getLogger('MainWindow')
@@ -86,9 +86,15 @@ class MainWindow():
         self._list_widget.selected_index = -1
         self._list_widget.set_on_selection_changed(self._on_list)
 
+        k_valedit = gui.TextEdit()
+        k_valedit.placeholder_text = "Number of neighbours"
+
+        k_valedit.set_on_value_changed(self._on_value_changed)
+
         self._search_panel.add_child(self._search_txtbox)
         self._search_panel.add_child(title_layout)
         self._search_panel.add_child(self._list_widget)
+        self._search_panel.add_child(k_valedit)
         self.window.add_child(self._search_panel)
 
     def _on_layout(self, layout_context):
@@ -101,6 +107,15 @@ class MainWindow():
                 layout_context, gui.Widget.Constraints()).height)
         self._search_panel.frame = gui.Rect(r.get_right() - width, r.y, width,
                                               height)
+
+
+    def _on_value_changed(self, new_text):
+        if new_text.isnumeric():
+
+            self.log.error('K-means value changing has not been implemented')
+            self.SEARCH_SAMPLE = int(new_text)
+        else:
+            self.SEARCH_SAMPLE = 3
 
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
@@ -205,8 +220,9 @@ class MainWindow():
     
 
     def display_search_results(self, results: DataFrame) -> None:
-        self.results = results[['path']].head(self.SEARCH_SAMPLE)
+        self.results = results[['path']].head(self.SEARCH_SAMPLE + 1)
         items = [entry[1:] for entry in self.results['path']]
+        items.pop(0)
         self._list_widget.set_items(items)
     
     def _on_list(self, new_val, is_dlb_click):

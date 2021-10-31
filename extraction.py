@@ -12,7 +12,7 @@ import trimesh as tm
 import matplotlib.pyplot as plt
 
 log = getLogger('features')
-SAMPLE_SIZE = 100
+SAMPLE_SIZE = 250
 
 def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates angle between 3 random vertices.
@@ -208,7 +208,8 @@ def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE):
 
                     volume = tetrahedron.mass_properties['volume'] 
                     cr_volume = volume **(1./3)
-                    entries.append(cr_volume)
+                    if not isnan(cr_volume):
+                        entries.append(cr_volume)
 
     return entries
 
