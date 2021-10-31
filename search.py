@@ -7,7 +7,6 @@ from re import sub
 from annoy import AnnoyIndex
 import numpy as np
 from pandas import concat, DataFrame, read_csv, Series
-from extraction import simple_features
 from pyemd import emd
 
 from preprocess import single_preprocess
@@ -41,14 +40,16 @@ class Search:
             return
 
         self.standardize_database()
+        self.prepare_nearest_neighbours()
 
-    def compare(self, path: str, classification_path: str = None, custom_label: str = None) -> DataFrame:
+    def compare(self, path: str, classification_path: str = None, custom_label: str = None, use_ann: bool = True) -> DataFrame:
         '''Compares a file against the database
 
         Args:
             path (str): Path to the file to compare
             classification_path (str, optional): Path to a classification file for the file to compare. Defaults to None.
-            custom_label (str, optional): A custom label for the file comparison
+            custom_label (str, optional): A custom label for the file comparison. Defaults to None.
+            use_ann (bool, optional): Use Approximate Nearest Neighbours to search. Defaults to True.
 
         Returns:
             DataFrame: A dataframe containing the distance to all features, and the appropriate file path and name, sorted from most to least alike
@@ -65,20 +66,30 @@ class Search:
             log.critical('Failed to extract features from "%s" for comparison', path)
             return
 
-        feature_vector = self.prepare_entry(feature_map)
+        feature_series = self.prepare_entry(feature_map).fillna(0.0)
 
         # Assign the custom label if provided
         if custom_label is not None:
             feature_map['label'] = custom_label
         
-        # Get the distances for the simple features, and the total distances
-        simple_distances = self.scalar_feature_distance(feature_vector)
-        distribution_distances = self.distribution_feature_distance(feature_vector)
-        total_distances = concat([simple_distances, distribution_distances, self.raw_database['path']], axis=1)
-        total_distances['name'] = total_distances['path'].apply(basename)
-        total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1)
-        
-        return total_distances.sort_values(by='total_distance')
+        if use_ann:
+            order, distances = self.approximated_nearest_neighbours.get_nns_by_vector(create_feature_vector(feature_series), self.database.shape[0], include_distances=True)
+            total_distances = self.raw_database.loc[order, 'path']
+            names = total_distances.apply(basename)
+            names.name = 'name'
+            total_distances = concat([total_distances, names], axis=1)
+            total_distances['total_distance'] = distances
+            
+            return total_distances
+        else:
+            # Get the distances for the simple features, distribution features, and the total distances
+            simple_distances = self.scalar_feature_distance(feature_series)
+            distribution_distances = self.distribution_feature_distance(feature_series)
+            total_distances = concat([simple_distances, distribution_distances, self.raw_database['path']], axis=1)
+            total_distances['name'] = total_distances['path'].apply(basename)
+            total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1)
+            
+            return total_distances.sort_values(by='total_distance')
 
     def distribution_feature_distance(self, entry: Series) -> DataFrame:
         '''Calculates the euclidian distance between the distribution features in the database and that of a single entry
@@ -144,20 +155,28 @@ class Search:
         Args:
             trees (int, optional): The number of trees to generated. Defaults to 7.
         '''
-        self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * 20)
-        self.database[scalar_columns + distribution_columns].apply(feature_vector)
+        self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * 20, metric='euclidean')
+        feature_vectors = self.database[scalar_columns + distribution_columns].apply(create_feature_vector, axis=1)
+
+        for i, fv in enumerate(feature_vectors):
+            self.approximated_nearest_neighbours.add_item(i, fv)
+        
+        self.approximated_nearest_neighbours.build(trees)
 
     def standardize_database(self) -> None:
         '''Standardizes the loaded database's feature values'''
         # Standardize the scalar features
         scalars = self.raw_database[scalar_columns]
+        means = np.mean(scalars)
+        stddevs = np.std(scalars)
+        scalars.transform(lambda row: (row - means) / stddevs, axis=1)
 
         # Convert the (already normalized) serialized histograms to numpy array
         to_numpy = lambda s: np.asarray([float(x) for x in sub(r'[\,\[\]]', '', s).split(' ')]) if type(s) is str else s
         distributions = self.raw_database[distribution_columns].apply(lambda s: s.apply(to_numpy))
 
         # Store the result
-        self.database = concat([scalars, distributions], axis=1)
+        self.database = concat([scalars, distributions], axis=1).fillna(0.0)
 
 def generate_distance_matrix(size: int, unit_distance: float = 1.0) -> np.ndarray:
     '''Generates a distance matrix for pyemd
@@ -186,8 +205,9 @@ def create_feature_vector(row: Series) -> np.ndarray:
     Returns:
         np.ndarray: The created vector
     '''
-    return np.concatenate([row[scalar_columns] + row['A3'] + row['D1'] + row['D2'] + row['D3'] + row['D4']])
+    return np.concatenate([row[scalar_columns], row['A3'], row['D1'], row['D2'], row['D3'], row['D4']])
 
 if __name__ == '__main__':
     s = Search('./data_out/database.csv')
-    print(s.compare('./data_out/m100/m100.off'))
+    print(s.compare('./data_out/m83/m83.off', use_ann=False).iloc[:10,:]['path'])
+    print(s.compare('./data_out/m83/m83.off').iloc[:10,:]['path'])
