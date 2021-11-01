@@ -21,8 +21,6 @@ class MainWindow():
     ACTION_CLEAR_MESH = 2
     MENU_SHOW_COMPARE = 11
 
-    SEARCH_SAMPLE = 5
-
 
     log = getLogger('MainWindow')
 
@@ -113,9 +111,9 @@ class MainWindow():
         if new_text.isnumeric():
 
             self.log.error('K-means value changing has not been implemented')
-            self.SEARCH_SAMPLE = int(new_text)
+            self.search_engine.search_sample = int(new_text)
         else:
-            self.SEARCH_SAMPLE = 3
+            self.search_engine.search_sample  = 3
 
     def create_menu_bar(self):
         if gui.Application.instance.menubar is None:
@@ -220,7 +218,7 @@ class MainWindow():
     
 
     def display_search_results(self, results: DataFrame) -> None:
-        self.results = results[['path']].head(self.SEARCH_SAMPLE + 1)
+        self.results = results[['path']].head(self.search_engine.search_sample + 1)
         items = [entry[1:] for entry in self.results['path']]
         items.pop(0)
         self._list_widget.set_items(items)

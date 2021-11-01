@@ -12,7 +12,7 @@ import trimesh as tm
 import matplotlib.pyplot as plt
 
 log = getLogger('features')
-SAMPLE_SIZE = 250
+SAMPLE_SIZE = 10000
 
 def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
     '''Calculates angle between 3 random vertices.
@@ -96,13 +96,10 @@ def distance_barycenter_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) 
     '''
     barycenter = calculate_mesh_center(mesh)
     vertices = np.asarray(mesh.vertices)
-    sample_calc = int((samples)**(1.0/3.0))
-
-    sample_count = sample_calc if sample_calc < vertices.shape[0] else vertices.shape[0]
 
     entries = []
 
-    for point in range(sample_count):
+    for point in range(samples):
         random_indeces = np.random.choice(vertices.shape[0], size=1, replace= False)
         random_vertex = vertices[random_indeces, :]
         dist = distance_between_points(barycenter, random_vertex[0])
@@ -171,7 +168,7 @@ def visualize_histogram(counts: np.array, bins: np.array, title: str, output_pat
 def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE):
     
     vertices = mesh.vertices
-    sample_count = int((samples)**(1.0/3.0))
+    sample_count = int((samples)**(1.0/4.0))
 
     entries = []
 
@@ -225,7 +222,7 @@ def area_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> Lis
     """
 
     vertices = mesh.vertices
-    sample_count = int((samples*100)**(1.0/3.0))
+    sample_count = int((samples)**(1.0/3.0))
 
     entries = []
 
@@ -307,24 +304,25 @@ def distribution_features(mesh: tm.Trimesh) -> Dict[str, np.array]:
 
     dist = {}
 
+    print("Calculating A3")
     A3 = angle_between_randoms(mesh)
-    A3_counts, _ = create_histogram(data = A3, bin_count = 20)
+    A3_counts, _ = create_histogram(data = A3, bin_count = 30)
     dist['A3'] = A3_counts
-
+    print("Calculating D1")
     D1 = distance_barycenter_to_random(mesh)
-    D1_counts, _ = create_histogram(data = D1, bin_count = 20)
+    D1_counts, _ = create_histogram(data = D1, bin_count = 30)
     dist['D1'] = D1_counts
-
+    print("Calculating D2")
     D2 = distance_random_to_random(mesh)
-    D2_counts, _ = create_histogram(data = D2, bin_count = 20)
+    D2_counts, _ = create_histogram(data = D2, bin_count = 30)
     dist['D2'] = D2_counts
-
+    print("Calculating D3")
     D3 = area_of_random_vertices(mesh)
-    D3_counts, _ = create_histogram(data = D3, bin_count = 20)
+    D3_counts, _ = create_histogram(data = D3, bin_count = 30)
     dist['D3'] = D3_counts
-
+    print("Calculating D4")
     D4 = volume_of_random_vertices(mesh)
-    D4_counts, _ = create_histogram(data = D4, bin_count = 20)
+    D4_counts, _ = create_histogram(data = D4, bin_count = 30)
     dist['D4'] = D4_counts
 
     return dist

@@ -21,6 +21,7 @@ class Search:
     database: DataFrame = None
     raw_database: DataFrame = None
     stddevs: Series = None
+    search_sample = 5
 
     def __init__(self, database_path: str):
         '''Initializes a new search class
@@ -73,7 +74,7 @@ class Search:
             feature_map['label'] = custom_label
         
         if use_ann:
-            order, distances = self.approximated_nearest_neighbours.get_nns_by_vector(create_feature_vector(feature_series), self.database.shape[0], include_distances=True)
+            order, distances = self.approximated_nearest_neighbours.get_nns_by_vector(vector = create_feature_vector(feature_series), n = self.database.shape[0], include_distances=True)#self.search_sample, include_distances=True)
             total_distances = self.raw_database.loc[order, 'path']
             names = total_distances.apply(basename)
             names.name = 'name'
@@ -208,5 +209,5 @@ def create_feature_vector(row: Series) -> np.ndarray:
     return np.concatenate([row[scalar_columns], row['A3'], row['D1'], row['D2'], row['D3'], row['D4']])
 
 if __name__ == '__main__':
-    s = Search('./data_out/database/database.csv')
+    s = Search('./output/preprocess/database.csv')
     print(s.compare('./test_shapes/m100.off'))
