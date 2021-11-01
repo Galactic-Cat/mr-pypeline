@@ -156,7 +156,7 @@ class Search:
         Args:
             trees (int, optional): The number of trees to generated. Defaults to 7.
         '''
-        self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * 20, metric='euclidean')
+        self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * 30, metric='euclidean')
         feature_vectors = self.database[scalar_columns + distribution_columns].apply(create_feature_vector, axis=1)
 
         for i, fv in enumerate(feature_vectors):
