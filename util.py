@@ -11,10 +11,6 @@ BIN_COUNT = 30
 SAMPLE_SIZE = 100000
 SIZE_PARAM = 20000
 
-def fix_mesh(mesh: tm.base.Trimesh) -> tm.base.Trimesh:
-    tm.repair.fill_holes(mesh)
-    return mesh
-
 def calculate_mesh_center(mesh: tm.Trimesh):
     
     if mesh.is_watertight:

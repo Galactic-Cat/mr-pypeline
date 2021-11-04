@@ -218,9 +218,8 @@ class MainWindow():
     
 
     def display_search_results(self, results: DataFrame) -> None:
-        self.results = results[['path']].head(self.search_engine.search_sample + 1)
+        self.results = results[['path']].head(self.search_engine.search_sample)
         items = [entry[1:] for entry in self.results['path']]
-        items.pop(0)
         self._list_widget.set_items(items)
     
     def _on_list(self, new_val, is_dlb_click):

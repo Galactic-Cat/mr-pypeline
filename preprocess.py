@@ -95,9 +95,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
     preprocessed_files = []
 
-    # # Get label data
-    # labels = get_labels(classification_path) if classification_path is not None else None
-
     for file in files:
         log.debug('Preprocessing file: %s', file)
         current_mesh = tm.load(file)  
@@ -110,15 +107,6 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
         label = basename(dirname(file))
         face_count = current_mesh.faces.shape[0]
         vertex_count = current_mesh.vertices.shape[0]
-
-        # # Find category if relevant
-        # if labels is not None:
-        #     fnm = search(r'\d+', basename(file))
-        
-        #     # DATA ENTRY: Label 
-        #     if fnm is not None and fnm[0] in labels:
-        #         label = labels[fnm[0]]
-        #         log.debug('Labeled mesh %s as %s', basename(file), label)
 
         # Step 2: Supersample/Subsample
         if not acceptable_size(face_count):
@@ -136,10 +124,11 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
 
         #verify closed mesh
         current_mesh = make_watertight(current_mesh)
-        # Step 4: Normalize
+
+        # Step 3: Normalize
         current_mesh = normalize_mesh(current_mesh)
 
-        # Step 3: Get aabb points
+        # Step 4: Get aabb points
         # DATA ENTRY: Min and Max aabb points
         aabb_min, aabb_max = find_aabb_points(current_mesh)
 
@@ -346,11 +335,9 @@ def make_watertight(mesh: tm.Trimesh) -> tm.Trimesh:
     Returns:
         geometry.TriangleMesh: The closed mesh
     '''
-
     if not mesh.is_watertight:
-        success = tm.repair.fill_holes(mesh)
-        #vclean, fclean = pymeshfix.clean_from_arrays(mesh.vertices, mesh.faces)
-        #mesh = tm.Trimesh(vclean, fclean)
+        vclean, fclean = pymeshfix.clean_from_arrays(mesh.vertices, mesh.faces)
+        mesh = tm.Trimesh(vclean, fclean)
         log.error(f'Non-watertightness identified and fix attempted, success: {mesh.is_watertight}')
 
     return mesh
@@ -394,4 +381,4 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
 
 
 if __name__ == '__main__':
-    preprocess("test_shapes", "test_shapes", None)
+    preprocess("PSB/Plier", "output/mesh_fix", None)

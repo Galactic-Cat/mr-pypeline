@@ -136,6 +136,9 @@ dmypy.json
 
 # Custom Files
 princeton/
+output/hist/
+output/raw_results/
+output/preprocess_results/
 data_out/
 data/
 latex_images/

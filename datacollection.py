@@ -32,7 +32,7 @@ def verify_basic_features() -> None:
     print(entry)
     return
 
-def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15) -> None:
+def visualize_data(data: np.array, feature_name: str, output_path: str, title: str, xlabel:str, ylabel:str = '% of Shapes', bins_: int = 15, xticks = None, xtick_labels =  None) -> None:
     ''' Function that will visualize the collected data given a .csv file
 
     Args:
@@ -44,17 +44,18 @@ def visualize_data(data: np.array, feature_name: str, output_path: str, title: s
         log.error('Dataframe has not been instantiated.')
         return
 
-    # if feature_name == 'face_count' or feature_name == 'vertex_count':
-    #     data_threshold = np.percentile(data, 85)
-    #     data = data[(data <= data_threshold)]
-
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    n, bins, patches = ax.hist(data, bins = bins_, weights=np.zeros_like(data) + 100. / data.size)
+    n, bins, patches = ax.hist(data, bins = bins_, weights=np.zeros_like(data) + 100. / data.size,  ec="k")
     ax.set_xlabel(xlabel, size=15)
     ax.set_ylabel(ylabel, size=15)
     ax.set_title(title)
+    if xticks:
+        ax.set_xticks(xticks)
+    if xtick_labels:
+        ax.set_xticklabels(xtick_labels)
     ax.legend
+    ax.set_ylim([0,100])
     plt.savefig(output_path + "/"+ feature_name + '_hist.png')
     plt.close()
 
@@ -87,20 +88,23 @@ def display_class_distributions(input_path:str, output_path: str) -> None:
                 entry = ast.literal_eval(entry)
                 bins = [i for i in range(0,len(entry))]
                 plt.plot(bins, entry)
-
-            plt.tick_params(
-                axis='x',
-                which='both',      
-                bottom=False,      
-                top=False,         
-                labelbottom=False) 
+            plt.xticks(range(0, 31, 3), [round (x,2) for x in np.arange(0, 1.01, (3/30))])
+            plt.ylim([0,0.20])
+            if column == 'D3':
+                plt.xlabel(f'Relative {column} Area')
+            elif column == 'D4':
+                plt.xlabel(f'Relative {column} Volume')
+            else:
+                plt.xlabel(f'Relative {column} Distance')
+            plt.ylabel('Frequency')
             plt.title(f'{column} Distribution for class: {c_label}')
             plt.savefig(output_path + f'/{c_label}_{column}_dist.png')
             plt.close()
 
     return
 
-
+def verify_flip_testing(current_mesh: tm.Trimesh):
+    pass
 
 def calculate_features(output_path: str) -> None:
     
@@ -138,6 +142,11 @@ def verify_rotation(current_mesh: tm.Trimesh) -> float:
     pca = current_mesh.principal_inertia_vectors
     return abs(pca[0][0])
 
+def verify_watertightness(current_mesh: tm.Trimesh):
+    if current_mesh.is_watertight:
+        return 1
+    return 0
+
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
 
@@ -171,8 +180,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             aabb_size = verify_scaling(current_mesh)
             x_coordinate = verify_rotation(current_mesh)
             distance_from_center = verify_translation(current_mesh)
+            watertight = verify_watertightness(current_mesh)
             shape_information = {"face_count" :current_mesh.faces.shape[0], "vertex_count" : current_mesh.vertices.shape[0], 
-                                    "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate}
+                                    "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate, "water_tightness":watertight}
 
             files_information.append(shape_information)
 
@@ -184,6 +194,7 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
         visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
         visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
+        visualize_data(data = dataframe['water_tightness'].to_numpy(), title = 'Distribution of watertightness', feature_name = 'water_tightness', output_path = output_path, xlabel = 'Water tightness', bins_ = [-.5,.5,1.5], xticks= (0,1), xtick_labels = ['Non-watertight', 'Watertight'])
         calculate_features(output_path)
         #verify_basic_features(output_path)
 
