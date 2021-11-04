@@ -7,6 +7,10 @@ from os.path import isfile, isdir
 import trimesh as tm
 import numpy as np
 
+BIN_COUNT = 30
+SAMPLE_SIZE = 100000
+SIZE_PARAM = 20000
+
 def fix_mesh(mesh: tm.base.Trimesh) -> tm.base.Trimesh:
     tm.repair.fill_holes(mesh)
     return mesh

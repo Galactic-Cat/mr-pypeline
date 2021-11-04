@@ -12,10 +12,9 @@ import numpy as np
 import pandas as pd
 
 from extraction import extract_all_features
-from util import locate_mesh_files, calculate_mesh_center
+from util import locate_mesh_files, calculate_mesh_center, SIZE_PARAM
 
 log = getLogger('preprocess')
-SIZE_PARAM = 20000 # Check which value we want to use.
 SIZE_MAX = SIZE_PARAM + int(SIZE_PARAM * 0.2)
 SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 
@@ -183,7 +182,7 @@ def preprocess(input_path: str, output_path: str, classification_path: str) -> N
     dataframe.to_csv(output_path + '/database.csv', sep=',', index=False)
     log.info('File data saved to "%s"', output_path + '/database.csv')
 
-def single_preprocess(file_path: str, classification_path: str = None) -> Dict[str, str]:
+def single_preprocess(file_path: str) -> Dict[str, str]:
     '''Preprocesses a single file and returns the database entry
 
     Args:
@@ -207,10 +206,6 @@ def single_preprocess(file_path: str, classification_path: str = None) -> Dict[s
     # Create a dictionary to store features
     entry = {'path': file_path}
     labels = None
-
-    # # Retrieve labels if available
-    # if classification_path is not None and isfile(classification_path):
-    #     labels = get_labels(classification_path)
 
     # Assign label if possible
     if labels is not None:

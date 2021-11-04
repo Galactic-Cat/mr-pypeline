@@ -138,7 +138,6 @@ dmypy.json
 princeton/
 data_out/
 data/
-output/
 latex_images/
 gui_examples
 PSB

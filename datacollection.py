@@ -1,9 +1,12 @@
 '''Module for preprocessing the off and ply files'''
+from collections import defaultdict
 from logging import getLogger
 from os.path import exists, isfile
 
 from extraction import simple_features
 from preprocess import calculate_mesh_center, find_aabb_points
+from search import Search
+from statistics import mode
 from util import locate_mesh_files
 
 import trimesh as tm
@@ -97,6 +100,8 @@ def display_class_distributions(input_path:str, output_path: str) -> None:
 
     return
 
+
+
 def calculate_features(output_path: str) -> None:
     
     if output_path is None:
@@ -184,5 +189,79 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
+def collect_query_performance(input_path: str) -> defaultdict():
+    '''Function that preprocesses files from input to output
+
+    Args:
+        input (str): The input file/folder
+    '''
+
+    files = locate_mesh_files(input_path)
+    
+    s = Search(input_path + '/database.csv')
+
+    labels = list(set(s.raw_database['label'].values))
+
+    database_results = defaultdict(lambda: defaultdict(float))
+
+    precision_dict = defaultdict(float)
+
+    recall_dict = defaultdict(float)
+
+    overall_precision = 0.0
+
+    overall_recall = 0.0
+
+    for file in files:
+
+        file_label = s.raw_database[s.raw_database['path'] == file].label.values[0]
+
+        class_size = len(s.raw_database[s.raw_database['label'] == file_label])
+
+        compare_results = s.compare(file, preprocess = False, use_ann=True)
+        
+        results = compare_results['label'].to_list()[1:6]
+
+        TP = 0
+        FP = 0
+
+        for q_label in results:
+            database_results[file_label][q_label] +=1
+            if q_label == file_label:
+                TP +=1
+            else:
+                FP +=1
+        
+        FN = class_size - TP
+        precision = TP/(TP + FP)
+        recall = TP/(TP + FN)
+
+        precision_dict[file_label] += precision
+        recall_dict[file_label] += recall
+
+        overall_precision += precision
+        overall_recall += recall
+    
+    for label in labels:
+        class_size = len(s.raw_database[s.raw_database['label'] == label])
+        precision_dict[label] /= class_size
+        recall_dict[label] /= class_size
+
+    overall_precision/= len(s.raw_database)
+    overall_recall/= len(s.raw_database)
+
+    return database_results, precision_dict, recall_dict, overall_precision, overall_recall
+    
+
+
 if __name__ == '__main__':
-     verify_basic_features()
+     #verify_basic_features()
+     raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
+     print("Precision dict:")
+     print(precisions)
+     print("Recalls dict:")
+     print(recalls)
+     print("Precision avg:")
+     print(avg_pre)
+     print("recall avg:")
+     print(avg_recall)

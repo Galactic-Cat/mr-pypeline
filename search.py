@@ -10,6 +10,7 @@ from pandas import concat, DataFrame, read_csv, Series
 from pyemd import emd
 
 from preprocess import single_preprocess
+from util import BIN_COUNT
 
 log = getLogger('search')
 scalar_columns = ['surface_area', 'compactness', 'aabb_volume', 'diameter', 'eccentricity']
@@ -43,7 +44,7 @@ class Search:
         self.standardize_database()
         self.prepare_nearest_neighbours()
 
-    def compare(self, path: str, classification_path: str = None, custom_label: str = None, use_ann: bool = True) -> DataFrame:
+    def compare(self, path: str, custom_label: str = None, use_ann: bool = True, preprocess : bool = True) -> DataFrame:
         '''Compares a file against the database
 
         Args:
@@ -61,7 +62,11 @@ class Search:
             return  
 
         # Extract the features from the mesh
-        feature_map = single_preprocess(path, classification_path)
+        if preprocess: # or path not in database.
+            feature_map = single_preprocess(path)
+        else:
+            feature_index = self.raw_database[self.raw_database['path'] == path].index[0]
+            feature_map = self.database.iloc[feature_index]
 
         if feature_map is None:
             log.critical('Failed to extract features from "%s" for comparison', path)
@@ -75,20 +80,23 @@ class Search:
         
         if use_ann:
             order, distances = self.approximated_nearest_neighbours.get_nns_by_vector(vector = create_feature_vector(feature_series), n = self.database.shape[0], include_distances=True)#self.search_sample, include_distances=True)
-            total_distances = self.raw_database.loc[order, 'path']
-            names = total_distances.apply(basename)
+            total_distances = self.raw_database.loc[order]   #, 'path']
+            names = total_distances['path'].apply(basename)
             names.name = 'name'
             total_distances = concat([total_distances, names], axis=1)
             total_distances['total_distance'] = distances
             
+            total_distances = total_distances[['path', 'name', 'label', 'total_distance']]
             return total_distances
         else:
             # Get the distances for the simple features, distribution features, and the total distances
             simple_distances = self.scalar_feature_distance(feature_series)
             distribution_distances = self.distribution_feature_distance(feature_series)
-            total_distances = concat([simple_distances, distribution_distances, self.raw_database['path']], axis=1)
+            total_distances = concat([simple_distances, distribution_distances, self.raw_database['path'], self.raw_database['label']], axis=1)
             total_distances['name'] = total_distances['path'].apply(basename)
-            total_distances['total_distance'] = total_distances[['scalar_features', 'distribution_features']].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1)
+            #print(total_distances.columns)
+            columns = ['scalar_features', 'A3', 'D1', 'D2', 'D3', 'D4']
+            total_distances['total_distance'] = total_distances[columns].apply(lambda s: np.sqrt(np.sum(s ** 2)), axis=1)
             
             return total_distances.sort_values(by='total_distance')
 
@@ -102,7 +110,7 @@ class Search:
             DataFrame: A dataframe containing the standardized distances to each value and their total euclidian distance (in column "distribution_features")
         '''
         # Calculate the EMD for each feature for each value
-        distance_matrix = generate_distance_matrix(20, 0.5)
+        distance_matrix = generate_distance_matrix(BIN_COUNT, 0.5)
         values = self.database[distribution_columns].apply(lambda c: c.apply(lambda a: emd(a, entry[c.name], distance_matrix)))
         
         # Standardize the calculated distances
@@ -158,6 +166,7 @@ class Search:
         '''
         bins = self.database['A3'][0].shape[0]
         self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * bins, metric='euclidean')
+        #self.approximated_nearest_neighbours = AnnoyIndex(len(scalar_columns) + len(distribution_columns) * BIN_COUNT, metric='euclidean')
         feature_vectors = self.database[scalar_columns + distribution_columns].apply(create_feature_vector, axis=1)
 
         for i, fv in enumerate(feature_vectors):
@@ -210,5 +219,5 @@ def create_feature_vector(row: Series) -> np.ndarray:
     return np.concatenate([row[scalar_columns], row['A3'], row['D1'], row['D2'], row['D3'], row['D4']])
 
 if __name__ == '__main__':
-    s = Search('./output/preprocess/database.csv')
+    s = Search('./output/fix_mesh/database.csv')
     print(s.compare('./test_shapes/m100.off'))
