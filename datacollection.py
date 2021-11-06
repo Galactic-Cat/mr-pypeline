@@ -103,8 +103,6 @@ def display_class_distributions(input_path:str, output_path: str) -> None:
 
     return
 
-def verify_flip_testing(current_mesh: tm.Trimesh):
-    pass
 
 def calculate_features(output_path: str) -> None:
     
@@ -133,6 +131,30 @@ def calculate_features(output_path: str) -> None:
 
     return
 
+def verify_flip_testing(current_mesh: tm.Trimesh):
+    f_sign = [0,0,0]
+
+    vertices =  current_mesh.vertices
+
+    for face in current_mesh.faces:
+
+        vertex_total = np.zeros(3,dtype=float)
+
+        for vertex in face:
+            vertex_total+=vertices[vertex]
+
+        center_of_face = vertex_total/3
+
+        for i,coord in enumerate(center_of_face):
+            if coord >= 0:
+                f_sign[i] += 1
+            else:
+                f_sign[i] -= 1
+
+    f_sign = [1 if r >= 0 else -1 for i,r in enumerate(f_sign)]
+
+    return f_sign
+
 def verify_scaling(current_mesh: tm.Trimesh) -> float:
 
     min, max = find_aabb_points(current_mesh)
@@ -140,12 +162,31 @@ def verify_scaling(current_mesh: tm.Trimesh) -> float:
  
 def verify_rotation(current_mesh: tm.Trimesh) -> float:
     pca = current_mesh.principal_inertia_vectors
-    return abs(pca[0][0])
+    pca = pca / np.max(np.abs(pca))
+    return abs(pca[0][2])
 
 def verify_watertightness(current_mesh: tm.Trimesh):
     if current_mesh.is_watertight:
         return 1
     return 0
+
+def test_flipping(input_path: str):
+    files = locate_mesh_files(input_path)
+        
+    log.debug('Found %d files to preprocess', len(files))
+
+    flipping_list = []
+
+    for file in files:
+        if file is None or not exists(file):
+            log.error("The provided filepath %s does not exists", file)
+            continue
+            
+        current_mesh = tm.load(file)
+        flip_testing = verify_flip_testing(current_mesh)
+        flipping_list.append(flip_testing)
+    print(flipping_list)
+
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -178,12 +219,13 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             
             current_mesh = tm.load(file)
             aabb_size = verify_scaling(current_mesh)
-            x_coordinate = verify_rotation(current_mesh)
+            z_coordinate = verify_rotation(current_mesh)
             distance_from_center = verify_translation(current_mesh)
             watertight = verify_watertightness(current_mesh)
+            #flip_testing = verify_flip_testing(current_mesh)
             shape_information = {"face_count" :current_mesh.faces.shape[0], "vertex_count" : current_mesh.vertices.shape[0], 
-                                    "aabb_size": aabb_size, "centroid": distance_from_center,"x_coord": x_coordinate, "water_tightness":watertight}
-
+                                    "aabb_size": aabb_size, "centroid": distance_from_center,"z_coord": z_coordinate, "water_tightness":watertight}
+            #flipping_list.append(flip_testing)
             files_information.append(shape_information)
 
         global dataframe 
@@ -193,7 +235,7 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['vertex_count'].to_numpy(), title = 'Distribution of Vertex counts' , feature_name =  'vertex_count', output_path = output_path, xlabel = 'Vertex Count')
         visualize_data(data = dataframe['aabb_size'].to_numpy(), title = 'Distribution of AABB sizes', feature_name = 'aabb_size', output_path = output_path, xlabel ='AABB Size')
         visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
-        visualize_data(data = dataframe['x_coord'].to_numpy(), title = 'Distribution of X-coordinate alignments', feature_name = 'x_coord', output_path = output_path, xlabel = 'Absolute x-coord of major eigenvector')
+        visualize_data(data = dataframe['z_coord'].to_numpy(), title = 'Distribution of Z-coordinate alignments', feature_name = 'z_coord', output_path = output_path, xlabel = 'Absolute z-coord of major eigenvector')
         visualize_data(data = dataframe['water_tightness'].to_numpy(), title = 'Distribution of watertightness', feature_name = 'water_tightness', output_path = output_path, xlabel = 'Water tightness', bins_ = [-.5,.5,1.5], xticks= (0,1), xtick_labels = ['Non-watertight', 'Watertight'])
         calculate_features(output_path)
         #verify_basic_features(output_path)
@@ -266,13 +308,15 @@ def collect_query_performance(input_path: str) -> defaultdict():
 
 
 if __name__ == '__main__':
-     #verify_basic_features()
-     raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
-     print("Precision dict:")
-     print(precisions)
-     print("Recalls dict:")
-     print(recalls)
-     print("Precision avg:")
-     print(avg_pre)
-     print("recall avg:")
-     print(avg_recall)
+    
+    test_flipping('./PSB')
+
+    #  raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
+    #  print("Precision dict:")
+    #  print(precisions)
+    #  print("Recalls dict:")
+    #  print(recalls)
+    #  print("Precision avg:")
+    #  print(avg_pre)
+    #  print("recall avg:")
+    #  print(avg_recall)

@@ -308,7 +308,6 @@ def scale_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     '''
     
     min_bound, max_bound = find_aabb_points(mesh)
-    mesh_center = calculate_mesh_center(mesh)
 
     diff = abs(max_bound - min_bound)
     max_dim = None
@@ -367,7 +366,9 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
         geometry.TriangleMesh: The normalized mesh
     '''
 
-    mesh = translate(mesh)
+    mesh = mesh.apply_transform(mesh.principal_inertia_transform) 
+
+    mesh.vertices = mesh.vertices - mesh.center_mass
 
     mesh = pose_alignment(mesh)
 
@@ -381,4 +382,4 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
 
 
 if __name__ == '__main__':
-    preprocess("PSB/Plier", "output/mesh_fix", None)
+    preprocess("PSB", "output/mesh_fix", None)
