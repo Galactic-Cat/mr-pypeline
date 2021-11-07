@@ -239,7 +239,7 @@ class MainWindow():
     
     def search_similar_to(self, path: str):
 
-        results = self.search_engine.compare(path, preprocess = True)
+        results = self.search_engine.compare(path)
         self.display_search_results(results)
 
     def _on_search_dialog_done(self, path:str) -> None:

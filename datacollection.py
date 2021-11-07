@@ -153,7 +153,7 @@ def verify_flip_testing(current_mesh: tm.Trimesh):
 
     f_sign = [1 if r >= 0 else -1 for i,r in enumerate(f_sign)]
 
-    return f_sign
+    return f_sign[0]
 
 def verify_scaling(current_mesh: tm.Trimesh) -> float:
 
@@ -161,9 +161,7 @@ def verify_scaling(current_mesh: tm.Trimesh) -> float:
     return round(np.max(np.abs(max) + np.abs(min)), 4)
  
 def verify_rotation(current_mesh: tm.Trimesh) -> float:
-    pca = current_mesh.principal_inertia_vectors
-    pca = pca / np.max(np.abs(pca))
-    return abs(pca[0][2])
+    return abs(current_mesh.principal_inertia_vectors[0][2]) / np.max(np.abs(current_mesh.principal_inertia_vectors[0]))
 
 def verify_watertightness(current_mesh: tm.Trimesh):
     if current_mesh.is_watertight:
@@ -222,10 +220,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
             z_coordinate = verify_rotation(current_mesh)
             distance_from_center = verify_translation(current_mesh)
             watertight = verify_watertightness(current_mesh)
-            #flip_testing = verify_flip_testing(current_mesh)
+            flip = verify_flip_testing(current_mesh)
             shape_information = {"face_count" :current_mesh.faces.shape[0], "vertex_count" : current_mesh.vertices.shape[0], 
-                                    "aabb_size": aabb_size, "centroid": distance_from_center,"z_coord": z_coordinate, "water_tightness":watertight}
-            #flipping_list.append(flip_testing)
+                                    "aabb_size": aabb_size, "centroid": distance_from_center,"z_coord": z_coordinate, "water_tightness":watertight, "flip_testing": flip}
             files_information.append(shape_information)
 
         global dataframe 
@@ -237,8 +234,8 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
         visualize_data(data = dataframe['centroid'].to_numpy(), title = 'Distribution of centroid distance to origin', feature_name = 'centroid', output_path = output_path, xlabel = 'Norm of centroid')
         visualize_data(data = dataframe['z_coord'].to_numpy(), title = 'Distribution of Z-coordinate alignments', feature_name = 'z_coord', output_path = output_path, xlabel = 'Absolute z-coord of major eigenvector')
         visualize_data(data = dataframe['water_tightness'].to_numpy(), title = 'Distribution of watertightness', feature_name = 'water_tightness', output_path = output_path, xlabel = 'Water tightness', bins_ = [-.5,.5,1.5], xticks= (0,1), xtick_labels = ['Non-watertight', 'Watertight'])
+        visualize_data(data = dataframe['flip_testing'].to_numpy(), title = 'Distribution of x-coord sign', feature_name = 'flip_testing', output_path = output_path, xlabel = 'Flip test', bins_ = [-1.25,0,1.25], xticks= (-1,1), xtick_labels = ['Negative', 'Positive'])
         calculate_features(output_path)
-        #verify_basic_features(output_path)
 
     return
 
@@ -271,9 +268,9 @@ def collect_query_performance(input_path: str) -> defaultdict():
 
         class_size = len(s.raw_database[s.raw_database['label'] == file_label])
 
-        compare_results = s.compare(file, preprocess = False, use_ann=True)
+        compare_results = s.compare(file, preprocess = False, use_ann=False)
         
-        results = compare_results['label'].to_list()[1:6]
+        results = compare_results['label'].to_list()[0:7]
 
         TP = 0
         FP = 0
@@ -308,15 +305,14 @@ def collect_query_performance(input_path: str) -> defaultdict():
 
 
 if __name__ == '__main__':
-    
-    test_flipping('./PSB')
-
-    #  raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
-    #  print("Precision dict:")
-    #  print(precisions)
-    #  print("Recalls dict:")
-    #  print(recalls)
-    #  print("Precision avg:")
-    #  print(avg_pre)
-    #  print("recall avg:")
-    #  print(avg_recall)
+     raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
+     
+     
+     print("Precision dict:")
+     print(precisions)
+     print("Recalls dict:")
+     print(recalls)
+     print("Precision avg:")
+     print(avg_pre)
+     print("recall avg:")
+     print(avg_recall)

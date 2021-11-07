@@ -257,7 +257,7 @@ def area_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> Lis
 
     return entries
 
-#TODO EDIT THIS SO I CAN USE TRI MESH COMPUTATIONS
+
 def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
     '''Extract some simple features from a 3D mesh
 
@@ -275,6 +275,7 @@ def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
 
     # Get compactness
     if mesh.is_watertight:
+        mesh.fix_normals()
         values['compactness'] = (surface_area ** 3) / (36 * pi * (mesh.mass_properties['volume'] ** 2))
     else:
         values['compactness'] = None

@@ -1,5 +1,6 @@
 '''Module for comparing a single file against the database'''
 from logging import getLogger
+import os
 from os.path import basename, isfile
 from typing import Dict, Union
 from re import sub
@@ -15,6 +16,8 @@ from util import BIN_COUNT
 log = getLogger('search')
 scalar_columns = ['surface_area', 'compactness', 'aabb_volume', 'diameter', 'eccentricity']
 distribution_columns = ['A3', 'D1', 'D2', 'D3', 'D4']
+
+basedir = os.path.dirname(os.path.realpath(__file__)).replace("\\", "/")
 
 class Search:
     approximated_nearest_neighbours: AnnoyIndex = None
@@ -59,13 +62,15 @@ class Search:
         # Check file path for validity
         if not isfile(path):
             log.critical('File path "%s" is not valid or inaccessible', path)
-            return  
+            return
 
+        clean_path  = path.replace(basedir,'.')  
         # Extract the features from the mesh
-        if preprocess: # or path not in database.
+        if len(self.raw_database[self.raw_database['path'] == clean_path]) == 0: #if preprocess: # or path not in database.
             feature_map = single_preprocess(path)
+            
         else:
-            feature_index = self.raw_database[self.raw_database['path'] == path].index[0]
+            feature_index = self.raw_database[self.raw_database['path'] == clean_path].index[0]
             feature_map = self.database.iloc[feature_index]
 
         if feature_map is None:
@@ -219,5 +224,5 @@ def create_feature_vector(row: Series) -> np.ndarray:
     return np.concatenate([row[scalar_columns], row['A3'], row['D1'], row['D2'], row['D3'], row['D4']])
 
 if __name__ == '__main__':
-    s = Search('./output/fix_mesh/database.csv')
-    print(s.compare('./test_shapes/m100.off'))
+    s = Search('./output/preprocess/database.csv')
+    print(s.compare('./output/preprocess/100/100.off'))

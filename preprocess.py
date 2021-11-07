@@ -370,7 +370,9 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
 
     mesh.vertices = mesh.vertices - mesh.center_mass
 
-    mesh = pose_alignment(mesh)
+    # mesh = translate(mesh)
+
+    # mesh = pose_alignment(mesh)
 
     # STEP 3: Flip test
     mesh = flip_test(mesh)
@@ -382,4 +384,4 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
 
 
 if __name__ == '__main__':
-    preprocess("PSB", "output/mesh_fix", None)
+    preprocess("PSB", "output/preprocess", None)
