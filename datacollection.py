@@ -13,6 +13,7 @@ import trimesh as tm
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import ast
 
 
@@ -185,6 +186,24 @@ def test_flipping(input_path: str):
         flipping_list.append(flip_testing)
     print(flipping_list)
 
+def create_confusion_matrix(labels: list, dictionary: dict, method:str = 'ANN'):
+    
+    conf_matrix = np.zeros(shape=(len(labels), len(labels)))
+
+    df = pd.DataFrame(conf_matrix, columns= labels, index = labels)
+
+    for label in labels:
+    
+        for key in dictionary[label].keys():
+            df.at[label,key] = dictionary[label][key]
+            
+    ax = plt.axes()
+    sns.heatmap(df, annot= True, vmin = 0, vmax = 134)
+
+    ax.set_title(method + "Confusion Matrix")
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Ground Truth')
+    plt.show()
 
 def collect_shape_information(input_path: str, output_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -300,14 +319,37 @@ def collect_query_performance(input_path: str) -> defaultdict():
     overall_precision/= len(s.raw_database)
     overall_recall/= len(s.raw_database)
 
+    create_confusion_matrix(labels, database_results)
+
     return database_results, precision_dict, recall_dict, overall_precision, overall_recall
     
+def plot_grouped_hist(labels, ann_results, custom_results, y_label):
+    x = np.arange(len(labels))
+    
+    ann_results = [ann_results[key] for key in labels]
+    custom_results = [custom_results[key] for key in labels]
+    
+    width = 0.4
+    fig, ax = plt.subplots()
+    
+    ann_rects = ax.bar(x - width/2, ann_results, width, label = 'ANN')
+    custome_rects = ax.bar(x + width/2, custom_results, width, label = 'Custom')
+    
+    ax.set_ylabel(y_label)
+    ax.set_title(y_label + 'by search method')
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation = 90)
+    ax.legend()
 
+    fig.tight_layout()
+
+    plt.show()
 
 if __name__ == '__main__':
      raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
      
-     
+     #print(raw_results)
      print("Precision dict:")
      print(precisions)
      print("Recalls dict:")

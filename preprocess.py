@@ -370,10 +370,6 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
 
     mesh.vertices = mesh.vertices - mesh.center_mass
 
-    # mesh = translate(mesh)
-
-    # mesh = pose_alignment(mesh)
-
     # STEP 3: Flip test
     mesh = flip_test(mesh)
 
