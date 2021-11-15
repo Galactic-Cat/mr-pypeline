@@ -258,8 +258,9 @@ def collect_shape_information(input_path: str, output_path: str) -> None:
 
     return
 
-def collect_query_performance(input_path: str) -> defaultdict():
-    '''Function that preprocesses files from input to output
+def collect_precision_recall(input_path: str) -> defaultdict():
+    '''Function that collect precision and recall using the pipeline and
+    preprocessed database.
 
     Args:
         input (str): The input file/folder
@@ -322,7 +323,63 @@ def collect_query_performance(input_path: str) -> defaultdict():
     create_confusion_matrix(labels, database_results)
 
     return database_results, precision_dict, recall_dict, overall_precision, overall_recall
+
+
+def collect_MAP(input_path: str, ann:bool = False):
+    '''Function that collects the MAP of the pipeline
+
+    Args:
+        input (str): The input file/folder
+        ann (bool): Whether to use ANN or not
+    '''
+
+    files = locate_mesh_files(input_path)
     
+    s = Search(input_path + '/database.csv')
+
+    precision_class_dict = defaultdict(lambda: defaultdict(float))
+
+    for i,file in enumerate(files):
+    
+        file_label = s.raw_database[s.raw_database['path'] == file].label.values[0]
+
+        class_size = len(s.raw_database[s.raw_database['label'] == file_label])
+
+        compare_results = s.compare(file, preprocess = False, use_ann=ann)
+        
+        results = compare_results['label'].to_list()
+        
+        for k in range(1,20):
+            result_subset = results[0:k]
+            TP = 0
+            FP = 0
+
+            for q_label in result_subset:
+                if q_label == file_label:
+                    TP +=1
+                else:
+                    FP +=1
+                    
+            #Precision calculated for file with k results
+            precision = TP/(TP + FP)
+
+            precision_class_dict[file_label][k] += precision/class_size
+        
+    map_class_results = defaultdict(float)
+    
+    for label in precision_class_dict.keys():
+        dictionary_k =  precision_class_dict[label]
+        map = 0
+        for k in dictionary_k.keys():
+            map += dictionary_k[k]/19
+        
+        map_class_results[label] = map 
+
+    map_total = sum(list(map_class_results.values()))/len(map_class_results)
+
+    return map_class_results, map_total
+
+
 def plot_grouped_hist(labels, ann_results, custom_results, y_label):
     x = np.arange(len(labels))
     
@@ -347,7 +404,7 @@ def plot_grouped_hist(labels, ann_results, custom_results, y_label):
     plt.show()
 
 if __name__ == '__main__':
-     raw_results, precisions, recalls, avg_pre, avg_recall = collect_query_performance("./output/preprocess")
+     raw_results, precisions, recalls, avg_pre, avg_recall = collect_precision_recall("./output/preprocess")
      
      #print(raw_results)
      print("Precision dict:")
