@@ -1,9 +1,8 @@
 '''Module for extracting features from 3D meshes'''
-# TODO: Some of the distribution feature extraction is underperforming and should be refactored
 from logging import getLogger
 from math import pi, sqrt, isnan
 import matplotlib.pyplot as plt
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 from util import calculate_mesh_center, BIN_COUNT, SAMPLE_SIZE
 
 import numpy as np
@@ -17,25 +16,22 @@ def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[
     '''Calculates angle between 3 random vertices.
     
     Args:
-        mesh (geometry.TriangleMesh): The mesh from which we select the points
+        mesh (tm.Trimesh): The mesh from which we select the points
         num_of_points (int): Number of points to calculate
     
     Returns:
         List[float]: The list of angles between 3 random vertices
     '''
     vertices = mesh.vertices
-
     entries = []
-
     sample_count = int((samples)**(1.0/3.0))
-
     entries = []
 
-    for i in range(0, sample_count):
+    for _ in range(0, sample_count):
         i_index = np.random.choice(vertices.shape[0], size=1, replace= False)
         v_i = vertices[i_index, :][0]
 
-        for j in range(0, sample_count):
+        for _ in range(0, sample_count):
             j_index = np.random.choice(vertices.shape[0], size=1, replace= False)
             v_j = vertices[j_index, :][0]
             if j_index == i_index:
@@ -44,6 +40,7 @@ def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[
             for k in range(0,sample_count):
                 k_index = np.random.choice(vertices.shape[0], size=1, replace= False)
                 v_k = vertices[k_index, :][0]
+                
                 if k_index == i_index or k_index == j_index:
                     continue
             
@@ -52,13 +49,15 @@ def angle_between_randoms(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[
 
                 cos_angle = np.dot(vector_a_to_b, vector_c_to_b) / (np.linalg.norm(vector_a_to_b) * np.linalg.norm(vector_c_to_b))
                 angle = np.arccos(cos_angle)
+                
                 # This normalizes the angles to values between 0 - 1, facilitates histogram creation.
                 f_angle = np.degrees(angle)/360
+                
                 if isnan(f_angle) is True:
-                    # print(f"Cos angle:{cos_angle}, v_i: {v_i}, v_j:{v_j}, v_k:{v_k}")
                     continue
+
                 entries.append(f_angle)    
-    #print(entries)
+
     return entries
 
 
@@ -87,7 +86,7 @@ def distance_barycenter_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) 
     '''Calculates distance from barycenter to random vertices
     
     Args:
-        mesh (geometry.TriangleMesh): The mesh from which we select the points
+        mesh (tm.Trimesh): The mesh from which we select the points
         samples (int): Number of points to calculate distance for
     
     Returns:
@@ -95,10 +94,9 @@ def distance_barycenter_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) 
     '''
     barycenter = calculate_mesh_center(mesh)
     vertices = np.asarray(mesh.vertices)
-
     entries = []
 
-    for point in range(samples):
+    for _ in range(samples):
         random_indeces = np.random.choice(vertices.shape[0], size=1, replace= False)
         random_vertex = vertices[random_indeces, :]
         dist = distance_between_points(barycenter, random_vertex[0])
@@ -110,7 +108,7 @@ def distance_random_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> L
     '''Calculates distance from a random vertex to another random vertex.
     
     Args:
-        mesh (geometry.TriangleMesh): The mesh from which we select the vertices
+        mesh (tm.Trimesh): The mesh from which we select the vertices
         samples (int): Number of point pairs to calculate distance for
     
     Returns:
@@ -137,8 +135,17 @@ def distance_random_to_random(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> L
 
     return entries
 
-def create_histogram(data: List[float], bin_count: int = BIN_COUNT, normalized: bool = True):
-    
+def create_histogram(data: List[float], bin_count: int = BIN_COUNT, normalized: bool = True) -> Tuple[List[float], List[int]]:
+    '''Generates a histogram from a list of datapoints
+
+    Args:
+        data (List[float]): The list of datapoints
+        bin_count (int, optional): The number of bins to divide the data over. Defaults to BIN_COUNT.
+        normalized (bool, optional): Whether to normalize the data. Defaults to True.
+
+    Returns:
+        Tuple[List[int],List[float]]: A tuple respectively containing the counts per bin and the bin boundries both as a list
+    '''
     counts, bins = np.histogram(data, bins = bin_count)
     if normalized:
         counts = normalize_histogram(counts)
@@ -147,28 +154,50 @@ def create_histogram(data: List[float], bin_count: int = BIN_COUNT, normalized: 
 
 
 def normalize_histogram(entries: List[float]) -> List[float]:
+    '''Normalizes a histogram
 
+    Args:
+        entries (List[float]): The unnormalized histogram
+
+    Returns:
+        List[float]: The histogram, normalized to a range 0-1
+    '''
     total = sum(entries)
     entries = [entry/total for entry in entries]
 
     return entries
 
 def visualize_histogram(counts: np.array, bins: np.array, title: str, output_path: str) -> None:
+    '''Generates a visual representation of a histogram and prints it to a PNG file
 
-    fig = plt.hist(bins[:-1], bins, weights=counts)
-    plt.title(title)
+    Args:
+        counts (np.array): The array containing the counts of the histogram
+        bins (np.array): An array containing the boundries of the histogram
+        title (str): The title for the graph
+        output_path (str): The output path for the image
+    '''
+    plt.close() # Close any previously opened plots
+    plt.hist(bins[:-1], bins, weights=counts) # Create the histogram
+    # Set the title, y axis label, and the x axis label
+    plt.title(title) 
     plt.ylabel("Frequency")
     plt.xlabel("Range")
+    # Save and close the plot
     plt.savefig(output_path)
     plt.close()
 
-    return
+def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> List[float]:
+    '''Calculates the volume of four randomly chosen vertices, multiple times
 
-def volume_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE):
-    
+    Args:
+        mesh (tm.Trimesh): The mesh to sample
+        samples (int, optional): The number of samples to take. Defaults to SAMPLE_SIZE.
+
+    Returns:
+        List[float]: A list of float results
+    '''
     vertices = mesh.vertices
     sample_count = int((samples)**(1.0/4.0))
-
     entries = []
 
     for i in range(0, sample_count):
@@ -213,7 +242,7 @@ def area_of_random_vertices(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> Lis
     """Calculates area of a triangle made from 3 random vertices.
     
     Args:
-        mesh (geometry.TriangleMesh): The mesh from which we select the vertices
+        mesh (tm.Trimesh): The mesh from which we select the vertices
         samples (int): Number of samples to evaluate the area for.
     
     Returns:
@@ -262,7 +291,7 @@ def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
     '''Extract some simple features from a 3D mesh
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to extract features from
+        mesh (tm.Trimesh): The mesh to extract features from
 
     Returns:
         Dict[str, float]: A list of features, in order: surface area, compactness, AABB volume, diameter, and eccentricity
@@ -301,10 +330,7 @@ def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
     return values
 
 def distribution_features(mesh: tm.Trimesh) -> Dict[str, np.array]:
-
     dist = {}
-
-    print('Calculating distribution features')
 
     A3 = angle_between_randoms(mesh)
     A3_counts, _ = create_histogram(data = A3, bin_count = BIN_COUNT)
