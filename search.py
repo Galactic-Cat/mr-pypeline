@@ -47,7 +47,7 @@ class Search:
         self.standardize_database()
         self.prepare_nearest_neighbours()
 
-    def compare(self, path: str, custom_label: str = None, use_ann: bool = True, preprocess : bool = True) -> DataFrame:
+    def compare(self, path: str, custom_label: str = None, use_ann: bool = True) -> DataFrame:
         '''Compares a file against the database
 
         Args:
@@ -222,7 +222,3 @@ def create_feature_vector(row: Series) -> np.ndarray:
         np.ndarray: The created vector
     '''
     return np.concatenate([row[scalar_columns], row['A3'], row['D1'], row['D2'], row['D3'], row['D4']])
-
-if __name__ == '__main__':
-    s = Search('./output/preprocess/database.csv')
-    print(s.compare('./output/preprocess/100/100.off'))

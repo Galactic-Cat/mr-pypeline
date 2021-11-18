@@ -329,36 +329,46 @@ def simple_features(mesh: tm.Trimesh) -> Dict[str, float]:
     
     return values
 
-def distribution_features(mesh: tm.Trimesh) -> Dict[str, np.array]:
+def distribution_features(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> Dict[str, np.array]:
+    '''Gets the values of the distribution features for a shape
+
+    Args:
+        mesh (tm.Trimesh): The mesh to inspect
+        samples (int, optional): The number of samples to take for each distribution feature. Defaults to SAMPLE_SIZE.
+
+    Returns:
+        Dict[str, np.array]: A dictionary mapping the feature names to their histograms
+    '''
     dist = {}
 
-    A3 = angle_between_randoms(mesh)
+    A3 = angle_between_randoms(mesh, samples)
     A3_counts, _ = create_histogram(data = A3, bin_count = BIN_COUNT)
     dist['A3'] = A3_counts
     
-    D1 = distance_barycenter_to_random(mesh)
+    D1 = distance_barycenter_to_random(mesh, samples)
     D1_counts, _ = create_histogram(data = D1, bin_count = BIN_COUNT)
     dist['D1'] = D1_counts
 
-    D2 = distance_random_to_random(mesh)
+    D2 = distance_random_to_random(mesh, samples)
     D2_counts, _ = create_histogram(data = D2, bin_count = BIN_COUNT)
     dist['D2'] = D2_counts
 
-    D3 = area_of_random_vertices(mesh)
+    D3 = area_of_random_vertices(mesh, samples)
     D3_counts, _ = create_histogram(data = D3, bin_count = BIN_COUNT)
     dist['D3'] = D3_counts
     
-    D4 = volume_of_random_vertices(mesh)
+    D4 = volume_of_random_vertices(mesh, samples)
     D4_counts, _ = create_histogram(data = D4, bin_count = BIN_COUNT)
     dist['D4'] = D4_counts
 
     return dist
 
-def extract_all_features(mesh: tm.Trimesh) -> Dict[str, Union[float, np.ndarray]]:
+def extract_all_features(mesh: tm.Trimesh, samples: int = SAMPLE_SIZE) -> Dict[str, Union[float, np.ndarray]]:
     '''Extracts simple and shape property features from a mesh
 
     Args:
         mesh (geometry.TriangleMesh): The mesh to extract features from
+        samples (int, optional): The number of samples to take in the distribution features. Defaults to SAMPLE_SIZE.
 
     Returns:
         Dict[str, Union[float, np.ndarray]]: A dictionary mapping feature names to their values for this mesh
@@ -367,7 +377,7 @@ def extract_all_features(mesh: tm.Trimesh) -> Dict[str, Union[float, np.ndarray]
     features = simple_features(mesh)
 
     # Add distributions to features
-    distributions = distribution_features(mesh)
+    distributions = distribution_features(mesh, samples)
 
     features.update(distributions)
 

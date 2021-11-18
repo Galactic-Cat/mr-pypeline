@@ -233,7 +233,7 @@ def single_preprocess(file_path: str) -> Dict[str, str]:
     mesh = make_watertight(mesh) 
     mesh = normalize_mesh(mesh)
     aabb_min, aabb_max = find_aabb_points(mesh)
-    features = extract_all_features(mesh)
+    features = extract_all_features(mesh, 200)
 
     # Create the final entry
     entry.update({
