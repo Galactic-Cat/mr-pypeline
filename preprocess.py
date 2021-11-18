@@ -3,8 +3,8 @@ from logging import getLogger
 from os import mkdir
 from os.path import basename, exists, isfile
 from posixpath import dirname
-from re import search, split
-from typing import Dict
+from re import search
+from typing import Dict, Tuple
 
 import trimesh as tm
 import pymeshfix
@@ -21,13 +21,28 @@ SIZE_MIN = SIZE_PARAM - int(SIZE_PARAM * 0.2)
 convert_to_trimesh = lambda x: tm.Trimesh(np.asarray(x.vertices), np.asarray(x.triangles))
 
 def sub_sample(current_mesh: tm.Trimesh) -> tm.Trimesh:
-    current_mesh = current_mesh.as_open3d.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
+    '''Subsamples a mesh to decrease the number of vertices using quadratic error measure decimation
 
+    Args:
+        current_mesh (tm.Trimesh): The mesh to decimate
+
+    Returns:
+        tm.Trimesh: The decimated mesh
+    '''
+    current_mesh = current_mesh.as_open3d.simplify_quadric_decimation(target_number_of_triangles=SIZE_PARAM)
     current_mesh = convert_to_trimesh(current_mesh)
 
     return current_mesh
 
 def super_sample(current_mesh: tm.Trimesh) -> tm.Trimesh:
+    '''Supersamples a mesh to increase the number of vertices using midpoint division
+
+    Args:
+        current_mesh (tm.Trimesh): The mesh to supersample
+
+    Returns:
+        tm.Trimesh: The supersampled mesh
+    '''
     current_mesh = current_mesh.as_open3d.subdivide_midpoint()
     face_count = len(current_mesh.triangles)
     not_ready = True
@@ -46,7 +61,15 @@ def super_sample(current_mesh: tm.Trimesh) -> tm.Trimesh:
     
     return current_mesh
 
-def find_aabb_points (current_mesh: tm.Trimesh) -> tuple():
+def find_aabb_points (current_mesh: tm.Trimesh) -> Tuple[np.ndarray, np.ndarray]:
+    '''Finds the AABB boundry points
+
+    Args:
+        current_mesh (tm.Trimesh): The mesh to check
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: The minimum and maximum points as a tuple
+    '''
     bounds = current_mesh.bounds
     aabb_min = bounds[0]
     aabb_max = bounds[1]
@@ -54,13 +77,15 @@ def find_aabb_points (current_mesh: tm.Trimesh) -> tuple():
     return (aabb_min, aabb_max)
 
 def acceptable_size(face_count: int) -> bool:
-    if face_count <= SIZE_PARAM and face_count > SIZE_MIN:
-        return True
-    
-    if face_count >= SIZE_PARAM and face_count < SIZE_MAX:
-        return True
+    '''Checks whether a shape is in acceptable size range from it's face count
 
-    return False
+    Args:
+        face_count (int): The face count to check
+
+    Returns:
+        bool: Whether the shape is in acceptable range
+    '''
+    return (face_count <= SIZE_PARAM and face_count > SIZE_MIN) or (face_count >= SIZE_PARAM and face_count < SIZE_MAX)
 
 def preprocess(input_path: str, output_path: str, classification_path: str) -> None:
     '''Function that preprocesses files from input to output
@@ -226,10 +251,10 @@ def flip_test(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that mirrors the mesh if necessary on the x,y or z axis.
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to mirror
+        mesh (tm.Trimesh): The mesh to mirror
 
     Returns:
-        geometry.TriangleMesh: The mirrored mesh
+        tm.Trimesh: The mirrored mesh
     '''
     f_sign = [0,0,0]
 
@@ -268,10 +293,10 @@ def pose_alignment(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that aligns the mesh to the xyz axis.
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to align
+        mesh (tm.Trimesh): The mesh to align
 
     Returns:
-        geometry.TriangleMesh: The axis-aligned mesh
+        tm.Trimesh: The axis-aligned mesh
     '''
 
     pca = mesh.principal_inertia_vectors
@@ -301,10 +326,10 @@ def scale_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that scales the mesh to fit into an unit cube.
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to scale
+        mesh (tm.Trimesh): The mesh to scale
 
     Returns:
-        geometry.TriangleMesh: The scaled mesh
+        tm.Trimesh: The scaled mesh
     '''
     
     min_bound, max_bound = find_aabb_points(mesh)
@@ -329,10 +354,10 @@ def make_watertight(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Attempts to make a mesh watertight
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to make watertight
+        mesh (tm.Trimesh): The mesh to make watertight
 
     Returns:
-        geometry.TriangleMesh: The closed mesh
+        tm.Trimesh: The closed mesh
     '''
     if not mesh.is_watertight:
         vclean, fclean = pymeshfix.clean_from_arrays(mesh.vertices, mesh.faces)
@@ -360,10 +385,10 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     '''Function that calls every necessary normalization step.
 
     Args:
-        mesh (geometry.TriangleMesh): The mesh to normalize
+        mesh (tm.Trimesh): The mesh to normalize
 
     Returns:
-        geometry.TriangleMesh: The normalized mesh
+        tm.Trimesh: The normalized mesh
     '''
 
     mesh = mesh.apply_transform(mesh.principal_inertia_transform) 
@@ -377,7 +402,3 @@ def normalize_mesh(mesh: tm.Trimesh) -> tm.Trimesh:
     mesh = scale_mesh(mesh)
 
     return mesh
-
-
-if __name__ == '__main__':
-    preprocess("PSB", "output/preprocess", None)

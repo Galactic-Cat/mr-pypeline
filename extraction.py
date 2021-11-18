@@ -372,3 +372,4 @@ def extract_all_features(mesh: tm.Trimesh) -> Dict[str, Union[float, np.ndarray]
     features.update(distributions)
 
     return features
+    

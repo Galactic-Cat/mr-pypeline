@@ -402,16 +402,3 @@ def plot_grouped_hist(labels, ann_results, custom_results, y_label):
     fig.tight_layout()
 
     plt.show()
-
-if __name__ == '__main__':
-     raw_results, precisions, recalls, avg_pre, avg_recall = collect_precision_recall("./output/preprocess")
-     
-     #print(raw_results)
-     print("Precision dict:")
-     print(precisions)
-     print("Recalls dict:")
-     print(recalls)
-     print("Precision avg:")
-     print(avg_pre)
-     print("recall avg:")
-     print(avg_recall)
